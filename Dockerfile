@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+
+# Stage 1: Build frontend
+FROM node:22 AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy package files
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build the frontend
+RUN npm run build
+
+# Stage 2: Build backend with frontend assets
+FROM python:3.12-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend application
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini .
+COPY ruff.toml .
+
+# Copy built frontend from the frontend-builder stage
+COPY --from=frontend-builder /frontend/dist ./frontend/dist
+
+# Set production environment
+ENV ENV=production
+
+# Expose port
+EXPOSE 8000
+
+# Use production-ready server command (without reload)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]

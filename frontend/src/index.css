@@ -1,0 +1,250 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* 1. Tailwind v4 Theme Mapping */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-table-header: var(--table-header);
+  --color-table-row-even: var(--table-row-even);
+  --color-table-row-odd: var(--table-row-odd);
+  --color-table-hover: var(--table-hover);
+  --color-table-border: var(--table-border);
+}
+
+/* React Grid Layout Dark Mode Overrides */
+.dark .react-grid-item.react-grid-placeholder {
+  background: oklch(0.35 0.05 170 / 0.3) !important;
+  border: 1px dashed oklch(0.55 0.12 170) !important;
+}
+
+.dark .react-grid-item > .react-resizable-handle::after {
+  border-right: 2px solid oklch(0.4 0.04 200) !important;
+  border-bottom: 2px solid oklch(0.4 0.04 200) !important;
+}
+
+.dark .react-grid-item.resizing {
+  opacity: 0.9;
+}
+
+@layer base {
+  /* Light mode */
+  :root {
+    color-scheme: light;
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    --radius: 0.625rem;
+
+    /* Surfaces / text */
+    --background: oklch(1 0 0); /* white */
+    --foreground: oklch(0.15 0.03 200); /* dark neutral text */
+    --card: var(--background);
+    --card-foreground: var(--foreground);
+    --popover: var(--background);
+    --popover-foreground: var(--foreground);
+
+    /* Primary (logo-based) - slightly darker on light so it reads on white */
+    --primary: oklch(0.55 0.13 170); /* base icon / brand color (darker on white) */
+    --primary-hover: oklch(0.43 0.12 170); /* clearly distinct hover */
+    --primary-active: oklch(0.36 0.11 170); /* pressed state */
+    --primary-foreground: oklch(0.98 0.01 150);
+
+    /* Secondary / accents */
+    --secondary: oklch(0.72 0.09 170);
+    --secondary-foreground: var(--foreground);
+
+    --muted: oklch(0.92 0.02 200);
+    --muted-foreground: oklch(0.5 0.04 200);
+
+    --accent: var(--secondary);
+    --accent-foreground: var(--foreground);
+
+    /* Actions / states */
+    --destructive: oklch(0.62 0.2 25); /* warm red */
+    --border: oklch(0.9 0.02 200);
+    --input: var(--border);
+    --ring: var(--primary);
+
+    /* Financial indicators */
+    --positive: oklch(0.55 0.15 145); /* green for gains/positive */
+    --negative: oklch(0.62 0.2 25); /* red for losses/negative */
+
+    /* Helpful icon-specific vars for consistent treatment */
+    --icon-primary: var(--primary);
+    --icon-hover: var(--primary-hover);
+
+    /* Charts (cohesive set) - boosted saturation for better visibility */
+    /* original set:
+    --chart-1: var(--primary);
+    --chart-2: oklch(0.6 0.12 200);
+    --chart-3: oklch(0.7 0.18 150);
+    --chart-4: oklch(0.55 0.16 250);
+    --chart-5: oklch(0.75 0.2 90);
+    */
+    --chart-1:  oklch(62% 0.20 145); /* vibrant green (logo aligned) */
+    --chart-2:  oklch(65% 0.18 250); /* vibrant indigo */
+    --chart-3:  oklch(63% 0.19 340); /* vibrant pink-magenta */
+    --chart-4:  oklch(70% 0.21 75);  /* vibrant yellow-orange */
+    --chart-5:  oklch(58% 0.20 25);  /* vibrant terracotta red */
+    --chart-6:  oklch(68% 0.17 285); /* vibrant violet */
+    --chart-7:  oklch(62% 0.19 110); /* vibrant moss green */
+    --chart-8:  oklch(64% 0.18 210); /* vibrant sky blue */
+    --chart-9:  oklch(61% 0.20 320); /* vibrant magenta-pink */
+    --chart-10: oklch(66% 0.17 60);  /* vibrant amber */
+    --chart-11: oklch(59% 0.19 15);  /* vibrant red-orange */
+    --chart-12: oklch(67% 0.17 260); /* vibrant periwinkle */
+
+    /* Sidebar */
+    --sidebar: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--secondary);
+    --sidebar-accent-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
+
+    --table-header: oklch(0.96 0.01 200);
+    --table-row-even: oklch(1 0 0); /* white */
+    --table-row-odd: oklch(0.98 0.01 200); /* off-white */
+    --table-hover: oklch(0.95 0.01 200);
+    --table-border: oklch(0.92 0.01 200);
+
+    /* =========================
+      Grove Logo Colors
+      ========================= */
+
+    /* Main Logo Colors */
+    --logo-green-oklch: oklch(72.69% 0.152 145.2);   /* #21b16a */
+    --logo-bluegreen-oklch: oklch(69.4% 0.127 196.5); /* #1e96b3 */
+    
+    --logo-white-oklch: oklch(100% 0 0);              /* #ffffff */
+
+    /* Light Mode Hover Adjustments */
+    --logo-green-hover-light-oklch: oklch(62% 0.152 145.2);   /* #1a8a53 */
+    --logo-bluegreen-hover-light-oklch: oklch(59% 0.127 196.5); /* #17758d */
+
+    /* Dark Mode Hover Adjustments */
+    --logo-green-hover-dark-oklch: oklch(78% 0.152 145.2);    /* #2cd37c */
+    --logo-bluegreen-hover-dark-oklch: oklch(75% 0.127 196.5); /* #29b9d3 */
+
+    
+  }
+
+  /* Dark mode - true dark / near-black backgrounds */
+  .dark {
+    color-scheme: dark;
+    --logo-darkgray-oklch: oklch(23.6% 0.009 264.1); /* #2d2d2d */
+    /* Dark Mode Background Recommendation */
+    --dark-bg-oklch: oklch(15% 0.004 264.1); /* #232323 */
+    --dark-bg-hover-oklch: oklch(20% 0.004 264.1); /* #323232 */
+    /* Softer dark backgrounds - easier on the eyes */
+    --background: oklch(0.18 0.004 264.1); /* soft dark gray - lighter than before */
+    --foreground: oklch(0.96 0.01 180);
+    --card: oklch(0.22 0.004 264.1); /* elevated surface - slightly lighter */
+    --card-foreground: var(--foreground);
+    --popover: var(--card);
+    --popover-foreground: var(--foreground);
+
+    /* Primary: keep contrast strong on dark */
+    --primary: oklch(0.72 0.12 170); /* slightly brighter on dark */
+    --primary-hover: oklch(0.62 0.12 170);
+    --primary-active: oklch(0.54 0.11 170);
+    --primary-foreground: oklch(0.07 0 0);
+
+    --secondary: oklch(0.55 0.09 170);
+    --secondary-foreground: var(--foreground);
+
+    --muted: oklch(0.18 0.02 200);
+    --muted-foreground: oklch(0.7 0.05 200);
+
+    --accent: var(--secondary);
+    --accent-foreground: var(--foreground);
+
+    --destructive: oklch(0.62 0.2 25);
+    --border: oklch(0.25 0.02 200); /* Lighter border for dark mode visibility */
+    --input: oklch(0.22 0.02 200); /* Slightly lighter for input fields */
+    --ring: var(--primary);
+
+    /* Financial indicators - brighter for dark mode */
+    --positive: oklch(0.70 0.17 145); /* brighter green for dark bg */
+    --negative: oklch(0.68 0.2 25); /* brighter red for dark bg */
+
+    /* Icon helpers for dark */
+    --icon-primary: var(--primary);
+    --icon-hover: var(--primary-hover);
+
+    /* Charts tuned for dark surfaces - boosted saturation */
+    /* original set:
+    --chart-1: var(--primary);
+    --chart-2: oklch(0.65 0.14 150);
+    --chart-3: oklch(0.78 0.18 100);
+    --chart-4: oklch(0.58 0.12 250);
+    --chart-5: oklch(0.7 0.18 90);
+    */
+    --chart-1:  oklch(75% 0.22 145); /* vibrant green */
+    --chart-2:  oklch(78% 0.20 250); /* vibrant indigo */
+    --chart-3:  oklch(73% 0.21 340); /* vibrant pink-magenta */
+    --chart-4:  oklch(80% 0.23 75);  /* vibrant yellow-orange */
+    --chart-5:  oklch(73% 0.21 25);  /* vibrant coral red */
+    --chart-6:  oklch(82% 0.19 285); /* vibrant violet */
+    --chart-7:  oklch(74% 0.20 110); /* vibrant green-olive */
+    --chart-8:  oklch(76% 0.19 210); /* vibrant light blue */
+    --chart-9:  oklch(71% 0.21 320); /* vibrant pink-magenta */
+    --chart-10: oklch(79% 0.19 60);  /* vibrant amber-gold */
+    --chart-11: oklch(72% 0.20 15);  /* vibrant warm red */
+    --chart-12: oklch(80% 0.18 260); /* vibrant lavender */
+
+
+    /* Sidebar on dark theme (blend with bg but keep readable) */
+    --sidebar: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--secondary);
+    --sidebar-accent-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
+
+    --table-header: oklch(0.25 0.008 264.1);
+    --table-row-even: oklch(0.20 0.004 264.1); /* slightly lighter for visibility */
+    --table-row-odd: oklch(0.16 0.004 264.1); /* slightly darker - clear alternation */
+    --table-hover: oklch(0.24 0.006 264.1); /* hover state */
+    --table-border: oklch(0.28 0.004 264.1);
+  }
+
+
+}
+
+

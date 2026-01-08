@@ -1,0 +1,20 @@
+# Docker Compose for frontend-only development with mock API data
+# Usage: docker compose -f docker-compose-mock.yaml up
+
+services:
+  frontend-mock:
+    image: node:22
+    container_name: grove_frontend_mock
+    working_dir: /frontend
+    command: sh -c "npm install && npm run dev:mock -- --host 0.0.0.0"
+    environment:
+      - VITE_API_MODE=mock
+    volumes:
+      # Mount source code but use a named volume for node_modules to avoid permission issues
+      - ./frontend:/frontend
+      - frontend_node_modules:/frontend/node_modules
+    ports:
+      - "5173:5173"
+
+volumes:
+  frontend_node_modules:

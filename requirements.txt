@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy>=2.0
+psycopg2-binary
+pydantic
+alembic
+python-dotenv
+cryptography
+apscheduler
+requests
+dateutils
+ruff==0.14.11
+mypy==1.19.1

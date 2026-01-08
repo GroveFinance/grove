@@ -1,0 +1,21 @@
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+test.py
+.env
+.env.local
+*.json
+*.local.yaml
+.DS_Store
+
+# Frontend environment files (but keep examples and presets)
+frontend/.env.local
+frontend/dist/
+frontend/node_modules/
+.claude/
+.serena/
+.vscode/
+.idea/
+backups/

@@ -1,0 +1,79 @@
+# Docker Compose for local development
+#
+# Environment variables (can be set in .env file):
+#   POSTGRES_USER (default: grove)
+#   POSTGRES_PASSWORD (default: grove)
+#   POSTGRES_DB (default: grove)
+#   DB_PORT (default: 5432)
+#   WEB_PORT (default: 8000)
+#   FRONTEND_PORT (default: 5173)
+#   LOG_LEVEL (default: debug)
+#   SIMPLEFIN_INITIAL_SYNC_MONTHS (default: 12)
+
+networks:
+  default:
+
+services:
+  db:
+    image: postgres:17
+    restart: always
+    container_name: grove_db
+    hostname: grove_db
+    networks:
+      - default
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-grove}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-grove}
+      POSTGRES_DB: ${POSTGRES_DB:-grove}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-grove} -d ${POSTGRES_DB:-grove}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: grove
+    restart: always
+    hostname: grove
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips='*'
+    networks:
+      - default
+    volumes: # only for development
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      - ./ruff.toml:/app/ruff.toml
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-grove}:${POSTGRES_PASSWORD:-grove}@db:5432/${POSTGRES_DB:-grove}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - SIMPLEFIN_INITIAL_SYNC_MONTHS=${SIMPLEFIN_INITIAL_SYNC_MONTHS:-12}
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:22
+    container_name: grove_frontend
+    working_dir: /frontend
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      # Mount source code but use a named volume for node_modules to avoid permission issues
+      - ./frontend:/frontend
+      - frontend_node_modules:/frontend/node_modules
+    networks:
+      - default
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+
+volumes:
+  pgdata:
+  frontend_node_modules:

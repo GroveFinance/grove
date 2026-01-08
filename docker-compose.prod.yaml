@@ -1,0 +1,50 @@
+# Production-like testing compose file
+# Use this to test the production build locally with your existing dev database
+
+services:
+  # Production app build (connects to existing dev DB)
+  app-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: grove_prod_test
+    ports:
+      - "8001:8000"  # Different port to avoid conflict with dev
+    environment:
+      # Connect to the SAME database as dev (preserves your data)
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-grove}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grove}
+      - ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    networks:
+      - myfinlens_default  # Use dev network to access dev DB
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"  # Don't auto-restart during testing
+
+  # Reuse dev database (don't create new one)
+  db:
+    image: postgres:17
+    container_name: grove_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-grove}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Please set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-grove}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-grove} -d ${POSTGRES_DB:-grove}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myfinlens_default
+
+networks:
+  myfinlens_default:
+    external: true  # Use existing dev network
+
+volumes:
+  pgdata:
+    external: true  # Use existing dev volume (preserves your data!)
+    name: myfinlens_pgdata
