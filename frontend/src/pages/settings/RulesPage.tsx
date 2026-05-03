@@ -13,28 +13,136 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { X } from "lucide-react";
-import { useState, useMemo } from "react";
+import { ArrowUp, ArrowDown, Download, Upload } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
 import CategoryCombobox from "@/components/ui/CategoryCombobox";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import MatchFilterInput, { matchesFilter, type MatchType } from "@/components/ui/MatchFilterInput";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { exportPayees, importPayees } from "@/services/api/payee";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function PayeesPage() {
   const navigate = useNavigate();
   const { data: groups, isLoading: loadingGroups } = useGroups();
-  const { data: payees, isLoading: loadingPayees } = usePayees();
+  const { data: payees, isLoading: loadingPayees } = usePayees({ excludeInvestment: true });
   const updatePayee = useUpdatePayee();
+  const queryClient = useQueryClient();
 
   const [payeeFilter, setPayeeFilter] = useState("");
   const [hideWithCategory, setHideWithCategory] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "count">("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [matchType, setMatchType] = useState<MatchType>("contains");
+
+  // Import/Export state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge');
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Export handler
+  const handleExport = async () => {
+    try {
+      const blob = await exportPayees();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payees_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Payees exported successfully');
+    } catch (error) {
+      toast.error('Failed to export payees');
+      console.error(error);
+    }
+  };
+
+  // File selection handler
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.csv')) {
+        toast.error('Please select a CSV file');
+        return;
+      }
+      setSelectedFile(file);
+      setShowImportDialog(true);
+    }
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
+
+  // Import handler
+  const handleImport = async () => {
+    if (!selectedFile) return;
+
+    setIsImporting(true);
+    try {
+      const result = await importPayees(selectedFile, importMode);
+
+      // Build summary message
+      const messages = [];
+      if (result.payees_created > 0) {
+        messages.push(`Created: ${result.payees_created}`);
+      }
+      if (result.payees_updated > 0) {
+        messages.push(`Updated: ${result.payees_updated}`);
+      }
+      if (result.payees_skipped > 0) {
+        messages.push(`Skipped: ${result.payees_skipped}`);
+      }
+
+      toast.success(`Import complete! ${messages.join(', ')}`);
+
+      // Show warnings if any
+      if (result.warnings.length > 0) {
+        result.warnings.forEach(warning => toast.warning(warning));
+      }
+
+      // Show errors if any
+      if (result.errors.length > 0) {
+        result.errors.forEach(error => toast.error(error));
+      }
+
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['payees'] });
+
+      setShowImportDialog(false);
+      setSelectedFile(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const filteredPayees = useMemo(() => {
     if (!payees) return [];
 
-    return payees.filter((payee) => {
+    const filtered = payees.filter((payee) => {
       // Filter by payee name
-      if (payeeFilter && !payee.name.toLowerCase().includes(payeeFilter.toLowerCase())) {
+      if (!matchesFilter(payee.name, payeeFilter, matchType)) {
         return false;
       }
 
@@ -45,7 +153,22 @@ export default function PayeesPage() {
 
       return true;
     });
-  }, [payees, payeeFilter, hideWithCategory]);
+
+    // Sort
+    filtered.sort((a, b) => {
+      let comparison = 0;
+
+      if (sortBy === "name") {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortBy === "count") {
+        comparison = (a.transaction_count ?? 0) - (b.transaction_count ?? 0);
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [payees, payeeFilter, hideWithCategory, sortBy, sortDirection, matchType]);
 
   return (
     <MainLayout title="Payees">
@@ -61,24 +184,41 @@ export default function PayeesPage() {
       >
         {() => (
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1 relative max-w-sm">
-                <Input
-                  placeholder="Filter by payee name..."
-                  value={payeeFilter}
-                  onChange={(e) => setPayeeFilter(e.target.value)}
-                  className="pr-8"
+            {/* Import/Export Buttons */}
+            <div className="flex justify-between items-center">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleExport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import CSV
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileSelect}
+                  className="hidden"
                 />
-                {payeeFilter && (
-                  <button
-                    onClick={() => setPayeeFilter("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Clear filter"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
               </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-4">
+              <MatchFilterInput
+                value={payeeFilter}
+                onChange={setPayeeFilter}
+                placeholder="Filter by payee name..."
+                className="flex-1 max-w-sm"
+                matchType={matchType}
+                onMatchTypeChange={setMatchType}
+              />
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="hideWithCategory"
@@ -96,19 +236,57 @@ export default function PayeesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-1/2">Payee</TableHead>
-                <TableHead className="w-1/2">Default Category</TableHead>
+                <TableHead className="w-2/5">
+                  <button
+                    onClick={() => {
+                      if (sortBy === "name") {
+                        setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                      } else {
+                        setSortBy("name");
+                        setSortDirection("asc");
+                      }
+                    }}
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
+                    Payee
+                    {sortBy === "name" && (
+                      sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="w-1/5">
+                  <button
+                    onClick={() => {
+                      if (sortBy === "count") {
+                        setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                      } else {
+                        setSortBy("count");
+                        setSortDirection("desc");
+                      }
+                    }}
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
+                    # Transactions
+                    {sortBy === "count" && (
+                      sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="w-2/5">Default Category</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPayees?.map((payee) => {
+              {filteredPayees?.map((payee, index) => {
                 const currentCategory =
                   groups
                     ?.flatMap((g) => g.categories)
                     .find((c) => c.id === payee.category_id) ?? null;
 
                 return (
-                  <TableRow key={payee.id}>
+                  <TableRow
+                    key={payee.id}
+                    className={index % 2 === 0 ? "bg-[var(--table-row-even)]" : "bg-[var(--table-row-odd)]"}
+                  >
                     <TableCell>
                       <button
                         onClick={() => {
@@ -121,6 +299,9 @@ export default function PayeesPage() {
                       >
                         {payee.name}
                       </button>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {payee.transaction_count.toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <CategoryCombobox
@@ -139,6 +320,53 @@ export default function PayeesPage() {
               })}
             </TableBody>
           </Table>
+
+          {/* Import Dialog */}
+          <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Import Payees</DialogTitle>
+                <DialogDescription>
+                  Choose how to handle existing payees with the same name.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <Select value={importMode} onValueChange={(v) => setImportMode(v as 'merge' | 'overwrite')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="merge">
+                      <div className="space-y-1">
+                        <div className="font-medium">Add New Only</div>
+                        <div className="text-xs text-muted-foreground">
+                          Skip payees that already exist (matched by name, case-insensitive)
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="overwrite">
+                      <div className="space-y-1">
+                        <div className="font-medium">Update Existing</div>
+                        <div className="text-xs text-muted-foreground">
+                          Update category for existing payees, create new ones
+                        </div>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleImport} disabled={isImporting}>
+                  {isImporting ? 'Importing...' : 'Import'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           </div>
         )}
       </AsyncRenderer>

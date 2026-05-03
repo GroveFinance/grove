@@ -10,7 +10,8 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import type { DateRange } from "react-day-picker";
 import { subMonths, startOfMonth, startOfDay, endOfDay } from "date-fns";
-import { SplitIcon, X, Plus, Trash2, Check, Filter, User, FileText, Loader2 } from "lucide-react";
+import { SplitIcon, Plus, Trash2, Check, Filter, User, FileText, Loader2 } from "lucide-react";
+import MatchFilterInput, { type MatchType } from "@/components/ui/MatchFilterInput";
 import { useUpdatePayee } from "@/hooks/mutations/useUpdatePayee";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -420,9 +421,11 @@ function SplitTransactionDialog({ transaction, onSave }: SplitDialogProps) {
 }
 
 // Calculate default date range (last 3 months) outside component to avoid recalculation
+// Note: "Last 3 months" includes current month, so we go back 2 full months
+// e.g., on Nov 27: Sept 1 - Nov 27 (Sept, Oct, Nov = 3 months)
 const getDefault3MonthRange = (): DateRange => {
   const today = new Date();
-  const threeMonthsAgo = subMonths(today, 3);
+  const threeMonthsAgo = subMonths(today, 2); // months - 1, to match TimeRangeSelector logic
   return {
     from: startOfDay(startOfMonth(threeMonthsAgo)),
     to: endOfDay(today),
@@ -438,6 +441,7 @@ export default function Transactions() {
   const [excludedAccountIds, setExcludedAccountIds] = useState<string[]>([]);
   const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(getDefault3MonthRange());
   const [payeeFilter, setPayeeFilter] = useState<string>("")
+  const [payeeMatchType, setPayeeMatchType] = useState<MatchType>("contains")
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const [sortBy, setSortBy] = useState<"transacted_at" | "amount">("transacted_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -567,8 +571,10 @@ export default function Transactions() {
     category_ids: selectedCategoryIds,
     excluded_category_ids: excludedCategoryIds,
     payee_name: payeeFilter || undefined,
+    payee_match_type: payeeMatchType,
     transacted_range: selectedRange,
     exclude_account_types: ["investment"], // Exclude investment accounts from transaction page
+    skip_transfers: true, // Exclude transfer transactions
     sort_by: sortBy,
     sort_order: sortOrder,
   })
@@ -582,8 +588,10 @@ export default function Transactions() {
     category_ids: selectedCategoryIds,
     excluded_category_ids: excludedCategoryIds,
     payee_name: payeeFilter || undefined,
+    payee_match_type: payeeMatchType,
     transacted_range: selectedRange,
     exclude_account_types: ["investment"],
+    skip_transfers: true, // Exclude transfer transactions
   })
 
   // Flatten all pages into a single array
@@ -692,23 +700,14 @@ export default function Transactions() {
         excludedIds={excludedCategoryIds}
         onExcludeChange={setExcludedCategoryIds}
       />
-      <div className="relative w-full sm:w-[250px]">
-        <Input
-          placeholder="Payee"
-          value={payeeFilter}
-          onChange={(e) => setPayeeFilter(e.target.value)}
-          className="pr-8"
-        />
-        {payeeFilter && (
-          <button
-            onClick={() => setPayeeFilter("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Clear payee filter"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+      <MatchFilterInput
+        value={payeeFilter}
+        onChange={setPayeeFilter}
+        placeholder="Payee"
+        className="w-full sm:w-[250px]"
+        matchType={payeeMatchType}
+        onMatchTypeChange={setPayeeMatchType}
+      />
       <TimeRangeSelector onUpdate={handleUpdate} showCustom defaultSelection={defaultDateRange} />
 
       <Select value={transactionType} onValueChange={(value) => setTransactionType(value as typeof transactionType)}>

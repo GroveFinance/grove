@@ -1,16 +1,32 @@
-import { Moon, Sun } from "lucide-react"
+import { Moon, Sun, Check } from "lucide-react"
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme, type ThemeName, type Mode } from "@/components/theme-provider"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
 
+const THEMES: { name: ThemeName; label: string }[] = [
+  { name: "grove", label: "Grove" },
+  { name: "ocean", label: "Ocean" },
+  { name: "sunset", label: "Sunset" },
+  { name: "forest", label: "Forest" },
+  { name: "slate", label: "Slate" },
+]
+
+const MODES: { mode: Mode; label: string }[] = [
+  { mode: "light", label: "Light" },
+  { mode: "dark", label: "Dark" },
+  { mode: "system", label: "System" },
+]
+
 export function ModeToggle() {
-  const { setTheme } = useTheme()
+  const { mode, themeName, setMode, setThemeName } = useTheme()
 
   return (
     <DropdownMenu>
@@ -21,16 +37,24 @@ export function ModeToggle() {
           <span>Theme</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
-        </DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Mode</DropdownMenuLabel>
+        {MODES.map(({ mode: m, label }) => (
+          <DropdownMenuItem key={m} onClick={() => setMode(m)}>
+            <Check className={`mr-2 h-4 w-4 ${mode === m ? 'opacity-100' : 'opacity-0'}`} />
+            {label}
+          </DropdownMenuItem>
+        ))}
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Color Scheme</DropdownMenuLabel>
+        {THEMES.map(({ name, label }) => (
+          <DropdownMenuItem key={name} onClick={() => setThemeName(name)}>
+            <Check className={`mr-2 h-4 w-4 ${themeName === name ? 'opacity-100' : 'opacity-0'}`} />
+            {label}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )

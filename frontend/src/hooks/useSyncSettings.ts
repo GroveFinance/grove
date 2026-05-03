@@ -11,8 +11,8 @@ export function useSyncSettings(name: string = "simplefin") {
     queryFn: async () => {
       try {
         return await getSync(name);
-      } catch (err: any) {
-        if (err.status === 404) return null;
+      } catch (err) {
+        if ((err as { status?: number }).status === 404) return null;
         throw err;
       }
     },
@@ -55,7 +55,7 @@ export function useSyncSettings(name: string = "simplefin") {
   return {
     data,
     loading: isLoading,
-    error: isError ? (error as any)?.message : null,
+    error: isError ? (error as Error)?.message : null,
     saveToken,
     refetch,
     syncNow,

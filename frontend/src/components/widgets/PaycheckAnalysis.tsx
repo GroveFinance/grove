@@ -254,7 +254,7 @@ export default function PaycheckAnalysis({
                 <button
                   onClick={() => {
                     const params = new URLSearchParams({
-                      category_ids: "51", // Paycheck category
+                      category_ids: "1", // Paycheck category
                     })
                     if (dateRange?.from) {
                       params.append("transacted_start", dateRange.from.toISOString())

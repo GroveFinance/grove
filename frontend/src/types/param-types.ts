@@ -7,6 +7,7 @@ export interface GetTransactionsParams {
   excluded_category_ids?: number[]
   payee_ids?: number[]
   payee_name?: string
+  payee_match_type?: "contains" | "exact" | "starts" | "ends"
   transacted_range?: DateRange
   skip?: number
   limit?: number
@@ -49,6 +50,7 @@ export interface UseTransactionsParams {
   excluded_category_ids?: number[]
   payee_ids?: number[]
   payee_name?: string
+  payee_match_type?: "contains" | "exact" | "starts" | "ends"
   transacted_range?: DateRange
   skip?: number
   limit?: number

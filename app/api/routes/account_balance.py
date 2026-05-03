@@ -10,7 +10,7 @@ from app.schemas import AccountBalanceOut
 router = APIRouter()
 
 
-@router.get("/", response_model=list[AccountBalanceOut], operation_id="list_account_balances")
+@router.get("", response_model=list[AccountBalanceOut], operation_id="list_account_balances")
 def list_account_balances(
     account_id: str | None = Query(None),
     start_date: datetime | None = Query(None),

@@ -22,7 +22,7 @@ interface GroupedCategoryData {
 }
 
 // Custom tooltip component with proper dark mode support
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
@@ -131,6 +131,47 @@ export default function CategoriesPage() {
     }));
   }, [groupedData]);
 
+  // Prepare data for monthly stacked bar chart (top 5 groups + other)
+  const monthlyStackedData = useMemo(() => {
+    if (!data?.data || data.data.length === 0) return [];
+
+    // Get all unique months
+    const allMonths = Array.from(new Set(data.data.map(d => d.month))).sort();
+
+    // Get top 5 groups by total spending
+    const top5Groups = groupedData.slice(0, 5).map(g => g.groupName);
+
+    // Build monthly data
+    return allMonths.map(month => {
+      const monthData: Record<string, string | number> = {
+        month,
+        monthLabel: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      };
+
+      // Initialize all groups to 0
+      top5Groups.forEach(groupName => {
+        monthData[groupName] = 0;
+      });
+      monthData['Other'] = 0;
+
+      // Sum up spending for each group in this month
+      data.data.forEach(item => {
+        if (item.month === month) {
+          const groupName = item.group_name || "Other";
+          const amount = Math.abs(item.total);
+
+          if (top5Groups.includes(groupName)) {
+            monthData[groupName] += amount;
+          } else {
+            monthData['Other'] += amount;
+          }
+        }
+      });
+
+      return monthData;
+    });
+  }, [data, groupedData]);
+
   const toggleGroup = (groupName: string) => {
     const newExpanded = new Set(expandedGroups);
     if (newExpanded.has(groupName)) {
@@ -146,16 +187,16 @@ export default function CategoriesPage() {
     navigate(`/transactions?category_ids=${categoryId}`);
   };
 
-  // Chart colors (using your existing chart colors from CSS)
+  // Chart colors from CSS theme variables
   const COLORS = [
-    'oklch(62% 0.20 145)',
-    'oklch(65% 0.18 250)',
-    'oklch(63% 0.19 340)',
-    'oklch(70% 0.21 75)',
-    'oklch(58% 0.20 25)',
-    'oklch(68% 0.17 285)',
-    'oklch(62% 0.19 110)',
-    'oklch(64% 0.18 210)',
+    'var(--chart-1)',
+    'var(--chart-2)',
+    'var(--chart-3)',
+    'var(--chart-4)',
+    'var(--chart-5)',
+    'var(--chart-6)',
+    'var(--chart-7)',
+    'var(--chart-8)',
   ];
 
   return (
@@ -236,6 +277,53 @@ export default function CategoriesPage() {
                       <Tooltip content={<CustomTooltip />} />
                       <Legend />
                     </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Monthly Stacked Bar Chart - Top 5 Groups + Other */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Monthly Spending by Group</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={monthlyStackedData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis
+                        dataKey="monthLabel"
+                        stroke="var(--muted-foreground)"
+                        fontSize={12}
+                      />
+                      <YAxis
+                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                        stroke="var(--muted-foreground)"
+                        fontSize={12}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{
+                          backgroundColor: 'var(--popover)',
+                          borderColor: 'var(--border)',
+                          color: 'var(--foreground)',
+                        }}
+                        cursor={false}
+                      />
+                      <Legend />
+                      {groupedData.slice(0, 5).map((group, index) => (
+                        <Bar
+                          key={group.groupName}
+                          dataKey={group.groupName}
+                          stackId="a"
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                      <Bar
+                        dataKey="Other"
+                        stackId="a"
+                        fill="var(--muted-foreground)"
+                      />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>

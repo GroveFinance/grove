@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Account, AccountType, Org } from "@/types";
 import type { SeededRandom } from "../config";
 
@@ -174,11 +175,15 @@ export function generateAccounts(
       // Generate account ID as UUID-like string
       const accountId = `acc-${accountCounter.toString().padStart(8, "0")}-mock`;
 
+      // Create unique account name by combining org name with account type
+      // e.g., "Chase Mastercard", "Citi Visa", "Fidelity 401(k)"
+      const accountName = `${org.name} ${template.namePattern}`;
+
       accounts.push({
         account_id: accountId,
-        name: template.namePattern,
+        name: accountName,
         alt_name: null,
-        display_name: template.namePattern,
+        display_name: accountName,
         currency: template.currency,
         account_type: template.type,
         org_name: org.name,

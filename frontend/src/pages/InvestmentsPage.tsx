@@ -25,7 +25,8 @@ export default function InvestmentsPage() {
         setSelectedRange(dateRange)
     }
 
-    const { data: accounts } = useAccounts()
+    // Only show visible accounts in the investments page
+    const { data: accounts } = useAccounts({ is_hidden: false })
 
     const { data: holdings, isLoading: holdingsLoading, error: holdingsError } = useHoldings({
         account_id: selectedAccountIds.length === 1 ? selectedAccountIds[0] : undefined,

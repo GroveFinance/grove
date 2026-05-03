@@ -1,4 +1,4 @@
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import Response
@@ -17,13 +17,13 @@ router = APIRouter()
 
 
 # List all sync configs
-@router.get("/", response_model=list[schemas.SyncConfigOut], operation_id="list_sync_configs")
+@router.get("", response_model=list[schemas.SyncConfigOut], operation_id="list_sync_configs")
 def list_sync_configs(db: Session = Depends(get_db)):
     return crud.get_sync_config(db)
 
 
 # Create a new sync config
-@router.post("/", response_model=schemas.SyncConfigOut, operation_id="create_sync_config")
+@router.post("", response_model=schemas.SyncConfigOut, operation_id="create_sync_config")
 def create_sync_config(sync_config: schemas.SyncConfigCreate, db: Session = Depends(get_db)):
     try:
         return crud.create_sync_config(db, sync_config)
@@ -190,6 +190,21 @@ def get_latest_sync_run(sync_id_or_name: str, db: Session = Depends(get_db)):
     run = sync_run_crud.get_latest_sync_run(db, sync.id)
     if not run:
         raise HTTPException(status_code=404, detail="No sync runs found")
+
+    # Check if sync run is stuck (running for more than 3 minutes)
+    if run.status == "running":
+        time_elapsed = datetime.now(UTC) - run.started_at
+        if time_elapsed > timedelta(minutes=3):
+            logger.warning(
+                f"Sync run {run.id} has been running for {time_elapsed.total_seconds():.0f}s, "
+                "marking as failed (stuck)"
+            )
+            # Mark as failed
+            run.status = "failed"  # type: ignore[assignment]
+            run.error_message = "Sync timed out (stuck for more than 3 minutes)"  # type: ignore[assignment]
+            run.completed_at = datetime.now(UTC)  # type: ignore[assignment]
+            db.commit()
+            db.refresh(run)
 
     return run
 

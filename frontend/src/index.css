@@ -193,8 +193,8 @@
     --accent-foreground: var(--foreground);
 
     --destructive: oklch(0.62 0.2 25);
-    --border: oklch(0.25 0.02 200); /* Lighter border for dark mode visibility */
-    --input: oklch(0.22 0.02 200); /* Slightly lighter for input fields */
+    --border: oklch(0.35 0.03 200); /* Much lighter border for better visibility */
+    --input: oklch(0.28 0.02 200); /* Lighter input background - more visible */
     --ring: var(--primary);
 
     /* Financial indicators - brighter for dark mode */
@@ -242,6 +242,258 @@
     --table-row-odd: oklch(0.16 0.004 264.1); /* slightly darker - clear alternation */
     --table-hover: oklch(0.24 0.006 264.1); /* hover state */
     --table-border: oklch(0.28 0.004 264.1);
+  }
+
+  /* ============================================
+     ADDITIONAL THEME VARIANTS
+     ============================================ */
+
+  /* OCEAN THEME - Blue/Cyan based */
+  :root[data-theme="ocean"] {
+    --primary: oklch(0.55 0.14 220); /* blue */
+    --primary-hover: oklch(0.45 0.13 220);
+    --primary-active: oklch(0.38 0.12 220);
+    --primary-foreground: oklch(0.98 0.01 220);
+
+    --secondary: oklch(0.72 0.10 200);
+    --positive: oklch(0.55 0.15 180); /* cyan for gains */
+    --negative: oklch(0.62 0.2 25);
+
+    --chart-1:  oklch(62% 0.20 220); /* vibrant blue */
+    --chart-2:  oklch(65% 0.18 180); /* vibrant cyan */
+    --chart-3:  oklch(63% 0.19 260); /* vibrant purple */
+    --chart-4:  oklch(70% 0.21 200); /* vibrant sky */
+    --chart-5:  oklch(58% 0.20 140); /* vibrant teal */
+    --chart-6:  oklch(68% 0.17 280); /* vibrant violet */
+    --chart-7:  oklch(62% 0.19 160); /* vibrant aqua */
+    --chart-8:  oklch(64% 0.18 240); /* vibrant indigo */
+    --chart-9:  oklch(61% 0.20 300); /* vibrant lavender */
+    --chart-10: oklch(66% 0.17 190); /* vibrant ice */
+    --chart-11: oklch(59% 0.19 210); /* vibrant navy */
+    --chart-12: oklch(67% 0.17 170); /* vibrant mint */
+
+    --table-header: oklch(0.94 0.04 220);
+    --table-row-even: oklch(1 0 0);
+    --table-row-odd: oklch(0.97 0.02 220);
+    --table-hover: oklch(0.93 0.03 220);
+    --table-border: oklch(0.90 0.03 220);
+  }
+
+  :root.dark[data-theme="ocean"] {
+    --primary: oklch(0.70 0.13 220);
+    --primary-hover: oklch(0.60 0.13 220);
+    --primary-active: oklch(0.52 0.12 220);
+
+    --secondary: oklch(0.55 0.10 200);
+    --positive: oklch(0.70 0.17 180);
+
+    --border: oklch(0.35 0.04 220); /* Ocean-tinted border */
+    --input: oklch(0.28 0.03 220); /* Ocean-tinted input */
+
+    --chart-1:  oklch(75% 0.22 220);
+    --chart-2:  oklch(78% 0.20 180);
+    --chart-3:  oklch(73% 0.21 260);
+    --chart-4:  oklch(80% 0.23 200);
+    --chart-5:  oklch(73% 0.21 140);
+    --chart-6:  oklch(82% 0.19 280);
+    --chart-7:  oklch(74% 0.20 160);
+    --chart-8:  oklch(76% 0.19 240);
+    --chart-9:  oklch(71% 0.21 300);
+    --chart-10: oklch(79% 0.19 190);
+    --chart-11: oklch(72% 0.20 210);
+    --chart-12: oklch(80% 0.18 170);
+
+    --table-header: oklch(0.20 0.03 220);
+    --table-row-even: oklch(0.18 0.02 220);
+    --table-row-odd: oklch(0.15 0.02 220);
+    --table-hover: oklch(0.22 0.03 220);
+    --table-border: oklch(0.26 0.03 220);
+  }
+
+  /* SUNSET THEME - Warm Orange/Amber based */
+  :root[data-theme="sunset"] {
+    --primary: oklch(0.60 0.16 50); /* warm orange */
+    --primary-hover: oklch(0.50 0.15 50);
+    --primary-active: oklch(0.42 0.14 50);
+    --primary-foreground: oklch(0.98 0.01 50);
+
+    --secondary: oklch(0.75 0.12 40);
+    --positive: oklch(0.55 0.15 130); /* green for gains */
+    --negative: oklch(0.62 0.2 10); /* deep red */
+
+    --chart-1:  oklch(65% 0.20 50);  /* vibrant orange */
+    --chart-2:  oklch(68% 0.18 30);  /* vibrant coral */
+    --chart-3:  oklch(60% 0.19 70);  /* vibrant amber */
+    --chart-4:  oklch(72% 0.21 10);  /* vibrant red-orange */
+    --chart-5:  oklch(62% 0.20 90);  /* vibrant gold */
+    --chart-6:  oklch(70% 0.17 340); /* vibrant rose */
+    --chart-7:  oklch(64% 0.19 110); /* vibrant yellow-green */
+    --chart-8:  oklch(66% 0.18 350); /* vibrant pink */
+    --chart-9:  oklch(63% 0.20 20);  /* vibrant vermillion */
+    --chart-10: oklch(68% 0.17 80);  /* vibrant marigold */
+    --chart-11: oklch(61% 0.19 0);   /* vibrant crimson */
+    --chart-12: oklch(69% 0.17 60);  /* vibrant peach */
+
+    --table-header: oklch(0.95 0.04 50);
+    --table-row-even: oklch(1 0 0);
+    --table-row-odd: oklch(0.98 0.02 40);
+    --table-hover: oklch(0.94 0.03 50);
+    --table-border: oklch(0.91 0.03 50);
+  }
+
+  :root.dark[data-theme="sunset"] {
+    --primary: oklch(0.75 0.15 50);
+    --primary-hover: oklch(0.65 0.15 50);
+    --primary-active: oklch(0.57 0.14 50);
+
+    --secondary: oklch(0.60 0.12 40);
+    --positive: oklch(0.70 0.17 130);
+
+    --border: oklch(0.35 0.04 50); /* Warm-tinted border */
+    --input: oklch(0.28 0.03 40); /* Warm-tinted input */
+
+    --chart-1:  oklch(78% 0.22 50);
+    --chart-2:  oklch(80% 0.20 30);
+    --chart-3:  oklch(75% 0.21 70);
+    --chart-4:  oklch(82% 0.23 10);
+    --chart-5:  oklch(76% 0.21 90);
+    --chart-6:  oklch(82% 0.19 340);
+    --chart-7:  oklch(78% 0.20 110);
+    --chart-8:  oklch(79% 0.19 350);
+    --chart-9:  oklch(76% 0.21 20);
+    --chart-10: oklch(81% 0.19 80);
+    --chart-11: oklch(74% 0.20 0);
+    --chart-12: oklch(82% 0.18 60);
+
+    --table-header: oklch(0.21 0.04 50);
+    --table-row-even: oklch(0.19 0.02 40);
+    --table-row-odd: oklch(0.16 0.02 40);
+    --table-hover: oklch(0.23 0.03 50);
+    --table-border: oklch(0.27 0.03 50);
+  }
+
+  /* FOREST THEME - Deep Green/Teal based */
+  :root[data-theme="forest"] {
+    --primary: oklch(0.50 0.15 155); /* deep green */
+    --primary-hover: oklch(0.40 0.14 155);
+    --primary-active: oklch(0.33 0.13 155);
+    --primary-foreground: oklch(0.98 0.01 155);
+
+    --secondary: oklch(0.70 0.11 170);
+    --positive: oklch(0.55 0.15 140); /* forest green for gains */
+    --negative: oklch(0.62 0.2 25);
+
+    --chart-1:  oklch(58% 0.20 155); /* vibrant forest */
+    --chart-2:  oklch(62% 0.18 180); /* vibrant teal */
+    --chart-3:  oklch(60% 0.19 130); /* vibrant emerald */
+    --chart-4:  oklch(68% 0.21 200); /* vibrant aqua */
+    --chart-5:  oklch(56% 0.20 140); /* vibrant jade */
+    --chart-6:  oklch(65% 0.17 170); /* vibrant mint */
+    --chart-7:  oklch(60% 0.19 110); /* vibrant lime */
+    --chart-8:  oklch(62% 0.18 190); /* vibrant cyan */
+    --chart-9:  oklch(59% 0.20 125); /* vibrant sea */
+    --chart-10: oklch(64% 0.17 160); /* vibrant spring */
+    --chart-11: oklch(57% 0.19 145); /* vibrant pine */
+    --chart-12: oklch(65% 0.17 175); /* vibrant turquoise */
+
+    --table-header: oklch(0.94 0.04 155);
+    --table-row-even: oklch(1 0 0);
+    --table-row-odd: oklch(0.97 0.02 155);
+    --table-hover: oklch(0.93 0.03 155);
+    --table-border: oklch(0.90 0.03 155);
+  }
+
+  :root.dark[data-theme="forest"] {
+    --primary: oklch(0.68 0.14 155);
+    --primary-hover: oklch(0.58 0.14 155);
+    --primary-active: oklch(0.50 0.13 155);
+
+    --secondary: oklch(0.52 0.11 170);
+    --positive: oklch(0.70 0.17 140);
+
+    --border: oklch(0.35 0.04 155); /* Green-tinted border */
+    --input: oklch(0.28 0.03 155); /* Green-tinted input */
+
+    --chart-1:  oklch(72% 0.22 155);
+    --chart-2:  oklch(76% 0.20 180);
+    --chart-3:  oklch(73% 0.21 130);
+    --chart-4:  oklch(79% 0.23 200);
+    --chart-5:  oklch(71% 0.21 140);
+    --chart-6:  oklch(79% 0.19 170);
+    --chart-7:  oklch(74% 0.20 110);
+    --chart-8:  oklch(75% 0.19 190);
+    --chart-9:  oklch(72% 0.21 125);
+    --chart-10: oklch(78% 0.19 160);
+    --chart-11: oklch(71% 0.20 145);
+    --chart-12: oklch(79% 0.18 175);
+
+    --table-header: oklch(0.20 0.03 155);
+    --table-row-even: oklch(0.18 0.02 155);
+    --table-row-odd: oklch(0.15 0.02 155);
+    --table-hover: oklch(0.22 0.03 155);
+    --table-border: oklch(0.26 0.03 155);
+  }
+
+  /* SLATE THEME - Neutral Gray/Blue-Gray based */
+  :root[data-theme="slate"] {
+    --primary: oklch(0.48 0.08 240); /* muted blue-gray */
+    --primary-hover: oklch(0.38 0.08 240);
+    --primary-active: oklch(0.31 0.07 240);
+    --primary-foreground: oklch(0.98 0.01 240);
+
+    --secondary: oklch(0.70 0.06 230);
+    --positive: oklch(0.55 0.15 145); /* green for gains */
+    --negative: oklch(0.62 0.2 25);
+
+    --chart-1:  oklch(60% 0.12 240); /* muted blue */
+    --chart-2:  oklch(64% 0.14 220); /* muted indigo */
+    --chart-3:  oklch(62% 0.13 260); /* muted purple */
+    --chart-4:  oklch(68% 0.15 200); /* muted sky */
+    --chart-5:  oklch(58% 0.12 180); /* muted teal */
+    --chart-6:  oklch(66% 0.11 280); /* muted violet */
+    --chart-7:  oklch(61% 0.13 210); /* muted navy */
+    --chart-8:  oklch(63% 0.12 250); /* muted lavender */
+    --chart-9:  oklch(60% 0.14 230); /* muted cobalt */
+    --chart-10: oklch(65% 0.11 190); /* muted ice */
+    --chart-11: oklch(59% 0.13 270); /* muted plum */
+    --chart-12: oklch(66% 0.12 215); /* muted periwinkle */
+
+    --table-header: oklch(0.94 0.02 240);
+    --table-row-even: oklch(1 0 0);
+    --table-row-odd: oklch(0.97 0.01 240);
+    --table-hover: oklch(0.93 0.02 240);
+    --table-border: oklch(0.90 0.02 240);
+  }
+
+  :root.dark[data-theme="slate"] {
+    --primary: oklch(0.65 0.09 240);
+    --primary-hover: oklch(0.55 0.09 240);
+    --primary-active: oklch(0.47 0.08 240);
+
+    --secondary: oklch(0.50 0.06 230);
+    --positive: oklch(0.70 0.17 145);
+
+    --border: oklch(0.35 0.03 240); /* Slate-tinted border */
+    --input: oklch(0.28 0.02 240); /* Slate-tinted input */
+
+    --chart-1:  oklch(72% 0.15 240);
+    --chart-2:  oklch(76% 0.17 220);
+    --chart-3:  oklch(74% 0.16 260);
+    --chart-4:  oklch(79% 0.18 200);
+    --chart-5:  oklch(71% 0.15 180);
+    --chart-6:  oklch(78% 0.14 280);
+    --chart-7:  oklch(73% 0.16 210);
+    --chart-8:  oklch(75% 0.15 250);
+    --chart-9:  oklch(72% 0.17 230);
+    --chart-10: oklch(77% 0.14 190);
+    --chart-11: oklch(71% 0.16 270);
+    --chart-12: oklch(77% 0.15 215);
+
+    --table-header: oklch(0.20 0.02 240);
+    --table-row-even: oklch(0.18 0.01 240);
+    --table-row-odd: oklch(0.15 0.01 240);
+    --table-hover: oklch(0.22 0.02 240);
+    --table-border: oklch(0.26 0.02 240);
   }
 
 

@@ -7,12 +7,12 @@ from app.db import get_db
 router = APIRouter()
 
 
-@router.post("/", response_model=schemas.GroupOut, operation_id="create_group")
+@router.post("", response_model=schemas.GroupOut, operation_id="create_group")
 def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
     return crud.create_group(db, group)
 
 
-@router.get("/", response_model=list[schemas.GroupOut], operation_id="list_groups")
+@router.get("", response_model=list[schemas.GroupOut], operation_id="list_groups")
 def list_groups(db: Session = Depends(get_db)):
     return crud.get_groups(db)
 

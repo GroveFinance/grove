@@ -10,7 +10,7 @@ from app.schemas import TransactionCreate, TransactionOut, TransactionUpdate
 router = APIRouter()
 
 
-@router.post("/", response_model=TransactionOut, operation_id="create_transaction")
+@router.post("", response_model=TransactionOut, operation_id="create_transaction")
 def create(data: TransactionCreate, db: Session = Depends(get_db)):
     try:
         return crud.create_transaction(db, data)
@@ -26,7 +26,7 @@ def read(id: str, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/", response_model=list[TransactionOut], operation_id="list_transactions")
+@router.get("", response_model=list[TransactionOut], operation_id="list_transactions")
 def list_transactions(
     account_ids: list[str] | None = Query(None),
     excluded_account_ids: list[str] | None = Query(None),
@@ -34,6 +34,7 @@ def list_transactions(
     excluded_category_ids: list[str] | None = Query(None),
     payee_ids: list[str] | None = Query(None),
     payee_name: str | None = Query(None),
+    payee_match_type: str | None = Query("contains"),
     transacted_start: datetime | None = Query(None),
     transacted_end: datetime | None = Query(None),
     skip: int = 0,
@@ -67,6 +68,7 @@ def list_transactions(
         excluded_category_ids_int,
         payee_ids_int,
         payee_name,
+        payee_match_type,
         transacted_start,
         transacted_end,
         skip,
@@ -103,6 +105,7 @@ def get_summary(
     excluded_category_ids: list[str] | None = Query(None),
     payee_ids: list[str] | None = Query(None),
     payee_name: str | None = Query(None),
+    payee_match_type: str | None = Query("contains"),
     transacted_start: datetime | None = Query(None),
     transacted_end: datetime | None = Query(None),
     skip_transfers: bool = False,
@@ -136,6 +139,7 @@ def get_summary(
         excluded_category_ids_int,
         payee_ids_int,
         payee_name,
+        payee_match_type,
         transacted_start,
         transacted_end,
         skip_transfers,

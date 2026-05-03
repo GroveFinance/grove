@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Local Overrides**: You can create a `CLAUDE.local.md` file (gitignored) to add local-specific configuration that extends this file. This is useful for documenting your personal setup (domains, infrastructure) without checking it into the repository.
+
 ## Project Overview
 
 Grove is a personal finance management tool built with:
@@ -24,7 +26,7 @@ docker compose up
 # API docs: http://localhost:8000/api/docs
 ```
 
-The application uses Traefik as a reverse proxy. The `SERVICE` environment variable must be set (referenced in docker-compose.yaml labels).
+The application can optionally use Traefik as a reverse proxy. If using Traefik, configure routing in `.local.yaml` files (gitignored).
 
 **Hot Reload**: Both the backend (FastAPI with uvicorn --reload) and frontend (Vite) support hot reload. Code changes are automatically detected and applied without requiring a restart.
 
@@ -256,6 +258,244 @@ DUPLICATE_DETECTION_MIN_MATCH_RATIO=0.8
 - **Category ID 0** is reserved for uncategorized transactions
 - The sync scheduler starts on application startup and runs jobs based on cron schedules in SyncConfig
 
+## Multi-Environment Deployment
+
+Grove supports three local environments with complete isolation for development, testing, and validation workflows. Public release deployment is handled separately in a standalone setup.
+
+### Environments Overview
+
+1. **Development Environment**
+   - Hot reload for both backend and frontend
+   - Volume mounts for live code editing
+   - Database: `budget` (existing development data)
+   - Ports: Backend 8000, Frontend 5173
+   - Compose: `compose-dev.yaml` + `compose-dev.local.yaml` (optional)
+
+2. **Mock Frontend Environment**
+   - Frontend-only with mock API data
+   - No backend or database required
+   - Port: 5174 (avoids conflicts with dev)
+   - Compose: `compose-mock.yaml` + `compose-mock.local.yaml` (optional)
+
+3. **Production Test Environment**
+   - Locally built production image
+   - Isolated database for testing
+   - Database: `budget-prod` (separate from dev)
+   - Port: 8002
+   - Compose: `compose-prod.yaml` + `compose-prod.local.yaml` (optional)
+
+**Note**: Public release is managed separately as a standalone setup.
+
+### Database Architecture
+
+All environments use a **single PostgreSQL instance** with separate databases:
+- **Dev**: `budget` (existing development database, unchanged)
+- **Prod**: `budget-prod` (isolated for production testing)
+- **Mock**: No database (frontend-only)
+
+Database initialization is handled by `scripts/init-databases.sh`, which runs automatically on PostgreSQL first startup. The script creates `budget-prod` if it doesn't exist.
+
+### File Naming Convention
+
+**Git-tracked base files:**
+- `compose-dev.yaml` - Development environment
+- `compose-mock.yaml` - Mock frontend environment
+- `compose-prod.yaml` - Production test environment
+
+**Gitignored local files** (Traefik configuration):
+- `compose-dev.local.yaml` - Dev Traefik config (optional, user-specific)
+- `compose-mock.local.yaml` - Mock Traefik config (optional, user-specific)
+- `compose-prod.local.yaml` - Prod Traefik config (optional, user-specific)
+
+**Environment files:**
+- `.env.dev.example` - Dev configuration template
+- `.env.mock.example` - Mock configuration template
+- `.env.prod.example` - Prod configuration template
+- `.env` - Active environment config (gitignored)
+
+**Note**: If you're not using Traefik, simply don't include the `.local.yaml` files in your `COMPOSE_FILE` setting.
+
+### Rebuilding Environments
+
+Each environment can be rebuilt and restarted independently. The rebuild scripts automatically detect and use `.local.yaml` files if they exist (for Traefik integration).
+
+```bash
+# Development (uses your current .env)
+docker compose up -d
+# Access: http://localhost:8000 (backend), http://localhost:5173 (frontend)
+
+# Rebuild mock frontend
+./rebuild-mock.sh
+# Access: http://localhost:5174
+# (Automatically uses compose-mock.local.yaml if it exists)
+
+# Rebuild prod environment
+./rebuild-prod.sh
+# Access: http://localhost:8002
+# (Automatically uses compose-prod.local.yaml if it exists)
+```
+
+**Switching Environments:**
+
+To switch between environments, update your `.env` file:
+
+```bash
+# Switch to mock
+cp .env.mock.example .env
+docker compose up -d
+
+# Switch to prod
+cp .env.prod.example .env
+./rebuild-prod.sh
+
+# Switch back to dev
+cp .env.dev.example .env
+docker compose up -d
+```
+
+**Or** use separate terminal windows and specify compose files directly:
+
+```bash
+# Terminal 1: Dev
+docker compose -f compose-dev.yaml -f compose-dev.local.yaml up
+
+# Terminal 2: Mock
+docker compose -f compose-mock.yaml -f compose-mock.local.yaml up
+
+# Terminal 3: Prod
+docker compose -f compose-prod.yaml -f compose-prod.local.yaml up
+```
+
+### Environment Configuration
+
+Key environment variables (set in `.env` file):
+
+- **COMPOSE_PROJECT_NAME**: Docker Compose project name (isolates containers/volumes)
+- **COMPOSE_FILE**: Compose files to use (colon-separated)
+- **POSTGRES_DB**: Database name (budget, budget-prod, or not set for mock)
+- **POSTGRES_USER**: Database user (default: dev)
+- **POSTGRES_PASSWORD**: Database password (default: dev)
+- **WEB_PORT**: Backend port mapping (8000, 8002)
+- **FRONTEND_PORT**: Frontend port mapping (5173 for dev, 5174 for mock)
+
+**Note**: Traefik routing (service names, domains) is configured directly in `.local.yaml` files, which are gitignored and user-specific.
+
+### Traefik Configuration
+
+Traefik routing is configured in `.local.yaml` files (gitignored, user-specific). These files contain hardcoded service names and domains for your specific setup.
+
+**If you're using Traefik**, create these files with your domain:
+
+**compose-dev.local.yaml** example:
+- Backend: `Host(grove-dev.yourdomain.com) && PathPrefix(/api)` → service port 8000
+- Frontend: `Host(grove-dev.yourdomain.com)` → service port 5173
+
+**compose-mock.local.yaml** example:
+- Frontend: `Host(grove-mock.yourdomain.com)` → service port 5173
+
+**compose-prod.local.yaml** example:
+- App: `Host(grove-prod.yourdomain.com)` → service port 8000 (single container)
+
+**Direct Access (no Traefik needed):**
+- Dev: http://localhost:8000 (backend), http://localhost:5173 (frontend)
+- Mock: http://localhost:5174
+- Prod: http://localhost:8002
+
+### Database Migrations
+
+Each environment maintains its own schema state:
+- **Dev**: Frequent schema changes during development
+- **Prod**: Stable schema for production testing
+
+Migrations run automatically on startup via `app/main.py:run_migrations()`.
+
+To manually run migrations in a specific environment:
+
+```bash
+# Ensure correct .env is active (check with: cat .env | grep COMPOSE_PROJECT_NAME)
+docker compose exec app alembic upgrade head
+```
+
+### Backup and Recovery
+
+Each environment can have isolated backups:
+
+```bash
+# Backup specific database
+docker compose exec db pg_dump -U dev budget > backups/budget-$(date +%Y%m%d).sql
+docker compose exec db pg_dump -U dev budget-prod > backups/budget-prod-$(date +%Y%m%d).sql
+
+# Restore to specific database
+docker compose exec -T db psql -U dev budget < backups/budget-20260322.sql
+docker compose exec -T db psql -U dev budget-prod < backups/budget-prod-20260322.sql
+```
+
+The `./backups` directory is mounted in all environments for easy access.
+
+### Troubleshooting
+
+**Check current environment:**
+```bash
+cat .env | grep COMPOSE_PROJECT_NAME
+docker compose ps
+```
+
+**View environment-specific logs:**
+```bash
+docker compose logs -f app
+docker compose logs -f frontend  # dev only
+```
+
+**Reset environment (preserves database):**
+```bash
+docker compose down
+docker compose up -d
+```
+
+**Reset specific database:**
+```bash
+docker compose exec db psql -U dev -d postgres -c "DROP DATABASE \"budget-prod\";"
+docker compose exec db psql -U dev -d postgres -c "CREATE DATABASE \"budget-prod\";"
+docker compose restart app  # Re-run migrations
+```
+
+**Connect to specific database:**
+```bash
+docker compose exec db psql -U dev -d budget
+docker compose exec db psql -U dev -d budget-prod
+```
+
+**List all databases:**
+```bash
+docker compose exec db psql -U dev -l
+# Should show: budget, budget-prod (and postgres, template0, template1)
+```
+
+**Access via Traefik vs direct ports:**
+- Traefik requires DNS setup and .local.yaml configuration
+- Direct ports work immediately after `docker compose up`
+- Both access methods work simultaneously
+
+### Container Isolation
+
+Each environment uses `COMPOSE_PROJECT_NAME` to create separate Docker resources:
+- Dev containers: `grove-dev_app`, `grove-dev_db`, `grove-dev_frontend`
+- Mock containers: `grove-mock_frontend`
+- Prod containers: `grove-prod_app`, `grove-prod_db`
+
+This allows running multiple environments simultaneously (different ports prevent conflicts).
+
+### Benefits
+
+- **Standardized naming**: Consistent compose-{env}.yaml pattern
+- **Database isolation**: Prod testing won't affect dev data
+- **Port flexibility**: Run multiple environments simultaneously
+- **Resource efficient**: Single PostgreSQL with separate databases
+- **Simple promotion**: One script per environment transition
+- **Developer-friendly**: Scripts, examples, comprehensive documentation
+- **Git-friendly**: DNS/Traefik config gitignored, base files and examples committed
+- **Dual access**: Traefik routing + direct localhost ports
+
 ## Future Enhancements
 
 ### Investment Transaction-to-Holding Linking (Planned)
@@ -316,3 +556,67 @@ DUPLICATE_DETECTION_MIN_MATCH_RATIO=0.8
    - Only needed when description doesn't match any holding clearly (~5% of cases)
 
 **Reference**: See conversation from 2025-12-15 about investment transaction analysis and SimpleFin data structure
+
+### Hardcoded Category/Group Name Assumptions (Multi-Language Preparation)
+
+**Status**: Acceptable for current English-only usage. Document for future internationalization work.
+
+**Context**: The application currently uses name-based pattern matching to identify special categories and groups. This works fine for English but would require refactoring for multi-language support. Any changes would also require new settings UI, which isn't a priority now.
+
+**Current Name-Based Lookups** (working as designed):
+
+1. **Transfer Category** (`app/crud/query_builder.py:44`)
+   - Pattern: `Category.name.ilike("%transfer%")`
+   - Used for: Excluding transfers from income/expense reports
+   - Risk: Could match unintended categories; won't work in other languages
+
+2. **Paycheck Category** (`app/crud/report.py:570, 941`)
+   - Exact match: `Category.name == "Paycheck"`
+   - Used for: Paycheck analysis widget, income vs expenses report
+   - Has null checks, returns empty data if not found
+
+3. **Bills & Utilities Group** (`app/crud/report.py:370, 777`)
+   - Pattern: `Group.name.ilike("%util%")`
+   - Used for: Utilities report, upcoming bills widget
+   - Excludes: `Category.name.ilike("%mortgage%")` and `Category.name.ilike("%rent%")`
+   - Risk: Pattern could match unintended groups; language-specific
+
+**Future Architecture Options** (for multi-language support):
+
+**Option 1: Category Type Enum** (Recommended)
+```python
+class Category(Base):
+    # ...
+    category_type = Column(Enum('expense', 'income', 'transfer', name='category_type'))
+    is_utility = Column(Boolean, default=False)  # For utility categorization
+    exclude_from_utility_reports = Column(Boolean, default=False)  # For mortgage/rent
+```
+
+**Option 2: System Configuration Table**
+```python
+class SystemConfig(Base):
+    key = Column(String, primary_key=True)
+    value = Column(JSON)
+
+# Examples:
+# {"special_categories": {"transfer": 42, "paycheck": 1}}
+# {"report_groups": {"utilities": 7}}
+```
+
+**Option 3: Category Tags**
+```python
+class Category(Base):
+    # ...
+    tags = Column(ARRAY(String))  # ["income", "recurring", "exclude_utilities"]
+```
+
+**Required Changes for Multi-Language Support**:
+- Add category type/tag fields to database schema
+- Create settings UI to configure special categories/groups
+- Update all name-based queries to use type/tag filters instead
+- Migration script to auto-detect and tag existing categories based on current names
+- Localization of category/group names separate from system functionality
+
+**Tracking**: This is prep work for multi-language support. Not a priority until internationalization is needed.
+
+**Reference**: See conversation from 2026-02-28 about hardcoded ID audit and category name assumptions

@@ -120,6 +120,7 @@ class Holding(Base):
 
     id = Column(String, primary_key=True)
     account_id = Column(String, ForeignKey("accounts.id", ondelete="CASCADE"))
+    account = relationship("Account")
     created = Column(DateTime(timezone=True), nullable=False)
     currency = Column(String, nullable=False, default="USD")
     cost_basis = Column(Numeric(18, 6), nullable=True)

@@ -53,7 +53,7 @@ export function BudgetTrendChart({ categoryData }: BudgetTrendChartProps) {
   };
 
   // Handle monthly bar click - navigate to transactions page with filters for that month
-  const handleMonthlyBarClick = (data: any) => {
+  const handleMonthlyBarClick = (data: Record<string, unknown>) => {
     if (!data || !data.monthDate) return; // Don't navigate if no month data
 
     const monthDate = new Date(data.monthDate + "-01");

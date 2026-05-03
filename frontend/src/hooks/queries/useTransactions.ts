@@ -34,24 +34,24 @@ function transformTransaction(t: Transaction): TransactionUI {
 }
 
 export function useTransactions(params: UseTransactionsParams = {}) {
-  const {enabled, account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, skip = 0, limit = 100, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types } = params;
+  const {enabled, account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, skip = 0, limit = 100, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types } = params;
 
   return useQuery({
     enabled: enabled,
-    queryKey: ["transactions", account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, skip, limit, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types],
+    queryKey: ["transactions", account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, skip, limit, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types],
     queryFn: async () => {
-      const txns = await getTransactions({ account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, skip, limit, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types });
+      const txns = await getTransactions({ account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, skip, limit, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types });
       return (txns ?? []).map(transformTransaction);
     },
   });
 }
 
 export function useInfiniteTransactions(params: UseTransactionsParams = {}) {
-  const {enabled, account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, limit = 100, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types } = params;
+  const {enabled, account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, limit = 100, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types } = params;
 
   return useInfiniteQuery({
     enabled: enabled,
-    queryKey: ["transactions-infinite", account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, limit, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types],
+    queryKey: ["transactions-infinite", account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, limit, sort_by, sort_order, skip_transfers, split_mode, account_types, exclude_account_types],
     queryFn: async ({ pageParam = 0 }) => {
       const txns = await getTransactions({
         account_ids,
@@ -60,6 +60,7 @@ export function useInfiniteTransactions(params: UseTransactionsParams = {}) {
         excluded_category_ids,
         payee_ids,
         payee_name,
+        payee_match_type,
         transacted_range,
         skip: pageParam,
         limit,
@@ -100,13 +101,13 @@ export function useUpdateTransaction() {
 }
 
 export function useTransactionsSummary(params: UseTransactionsParams = {}) {
-  const {enabled, account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, skip_transfers, account_types, exclude_account_types } = params;
+  const {enabled, account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, skip_transfers, account_types, exclude_account_types } = params;
 
   return useQuery({
     enabled: enabled,
-    queryKey: ["transactions-summary", account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, skip_transfers, account_types, exclude_account_types],
+    queryKey: ["transactions-summary", account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, skip_transfers, account_types, exclude_account_types],
     queryFn: async () => {
-      return getTransactionsSummary({ account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, transacted_range, skip_transfers, account_types, exclude_account_types });
+      return getTransactionsSummary({ account_ids, excluded_account_ids, category_ids, excluded_category_ids, payee_ids, payee_name, payee_match_type, transacted_range, skip_transfers, account_types, exclude_account_types });
     },
   });
 }

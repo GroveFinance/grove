@@ -68,11 +68,11 @@ export function usePaycheckAnalysis(params: ReportParams = {}) {
   });
 }
 
-export function useTopTransactions(params: ReportParams = {}) {
+export function useTopExpenses(params: ReportParams = {}) {
   const { dateRange, limit = 5 } = params;
 
   return useQuery<ReportOut<TopTransactionDataPoint>, Error>({
-    queryKey: ["topTransactions", params],
+    queryKey: ["topExpenses", params],
     queryFn: async () => {
       const result = await getReport({ report_type: "top_transactions", limit, ...params } as GetReportParams);
       return result as unknown as ReportOut<TopTransactionDataPoint>;

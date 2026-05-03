@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/layouts/MainLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,26 @@ import {
   GripVertical,
   ChevronDown,
   ChevronRight,
+  Download,
+  Upload,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { exportCategories, importCategories } from "@/services/api/categories";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   closestCenter,
@@ -270,10 +289,99 @@ function DroppableGroup({
   );
 }
 
+const CATEGORIES_VISITED_KEY = "grove_categories_visited";
+
 export default function SettingsPage() {
   const { data: groups, isLoading } = useGroups();
   const createGroup = useCreateGroup();
   const updateCategory = useUpdateCategory();
+  const queryClient = useQueryClient();
+
+  // Import/Export state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge');
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Mark categories page as visited for onboarding progress
+  useEffect(() => {
+    localStorage.setItem(CATEGORIES_VISITED_KEY, "true");
+  }, []);
+
+  // Export handler
+  const handleExport = async () => {
+    try {
+      const blob = await exportCategories();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `categories_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Categories exported successfully');
+    } catch (error) {
+      toast.error('Failed to export categories');
+      console.error(error);
+    }
+  };
+
+  // File selection handler
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.json')) {
+        toast.error('Please select a JSON file');
+        return;
+      }
+      setSelectedFile(file);
+      setShowImportDialog(true);
+    }
+    event.target.value = '';
+  };
+
+  // Import handler
+  const handleImport = async () => {
+    if (!selectedFile) return;
+
+    setIsImporting(true);
+    try {
+      const result = await importCategories(selectedFile, importMode);
+
+      // Build summary message
+      const messages = [];
+      if (result.groups_created > 0) {
+        messages.push(`Groups created: ${result.groups_created}`);
+      }
+      if (result.categories_created > 0) {
+        messages.push(`Categories created: ${result.categories_created}`);
+      }
+      if (result.categories_updated > 0) {
+        messages.push(`Categories updated: ${result.categories_updated}`);
+      }
+      if (result.categories_skipped > 0) {
+        messages.push(`Categories skipped: ${result.categories_skipped}`);
+      }
+
+      toast.success(`Import complete! ${messages.join(', ')}`);
+
+      // Show warnings and errors
+      result.warnings.forEach(warning => toast.warning(warning));
+      result.errors.forEach(error => toast.error(error));
+
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+
+      setShowImportDialog(false);
+      setSelectedFile(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -329,10 +437,31 @@ export default function SettingsPage() {
     <MainLayout>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Group & Category Settings</h1>
-        <Button onClick={handleAddGroup}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Group
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Export JSON
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import JSON
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <Button onClick={handleAddGroup}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Group
+          </Button>
+        </div>
       </div>
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
@@ -345,6 +474,53 @@ export default function SettingsPage() {
           ))}
         </div>
       </DndContext>
+
+      {/* Import Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Categories & Groups</DialogTitle>
+            <DialogDescription>
+              Choose how to handle existing categories and groups.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Select value={importMode} onValueChange={(v) => setImportMode(v as 'merge' | 'overwrite')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="merge">
+                  <div className="space-y-1">
+                    <div className="font-medium">Add New Only</div>
+                    <div className="text-xs text-muted-foreground">
+                      Skip items that already exist (matched by name, case-insensitive)
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="overwrite">
+                  <div className="space-y-1">
+                    <div className="font-medium">Update Existing</div>
+                    <div className="text-xs text-muted-foreground">
+                      Update budgets and group assignments, create new items
+                    </div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleImport} disabled={isImporting}>
+              {isImporting ? 'Importing...' : 'Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

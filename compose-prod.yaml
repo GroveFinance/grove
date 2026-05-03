@@ -1,0 +1,22 @@
+networks:
+  grove-shared:
+    external: true
+    name: grove-shared
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-grove-prod}_app
+    networks:
+      - grove-shared
+    ports:
+      - "8002:8000"  # Different port to avoid conflict with dev
+    environment:
+      # Connect to shared PostgreSQL instance running in dev environment
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@grove-dev_db:5432/budget-prod
+      - ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    restart: unless-stopped
+

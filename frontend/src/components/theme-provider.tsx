@@ -1,20 +1,31 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from "react"
 
-type Theme = "dark" | "light" | "system"
+type Mode = "dark" | "light" | "system"
+type ThemeName = "grove" | "ocean" | "sunset" | "forest" | "slate"
 
 type ThemeProviderProps = {
   children: React.ReactNode
-  defaultTheme?: Theme
+  defaultMode?: Mode
+  defaultTheme?: ThemeName
   storageKey?: string
 }
 
 type ThemeProviderState = {
-  theme: Theme
-  setTheme: (theme: Theme) => void
+  mode: Mode
+  themeName: ThemeName
+  theme: Mode // Legacy compatibility - returns resolved mode
+  setMode: (mode: Mode) => void
+  setThemeName: (theme: ThemeName) => void
+  setTheme: (mode: Mode) => void // Legacy compatibility
 }
 
 const initialState: ThemeProviderState = {
+  mode: "system",
+  themeName: "grove",
   theme: "system",
+  setMode: () => null,
+  setThemeName: () => null,
   setTheme: () => null,
 }
 
@@ -22,37 +33,57 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
+  defaultMode = "system",
+  defaultTheme = "grove",
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+  const [mode, setMode] = useState<Mode>(
+    () => (localStorage.getItem(`${storageKey}-mode`) as Mode) || defaultMode
+  )
+
+  const [themeName, setThemeName] = useState<ThemeName>(
+    () => (localStorage.getItem(`${storageKey}-name`) as ThemeName) || defaultTheme
   )
 
   useEffect(() => {
     const root = window.document.documentElement
 
+    // Remove all theme classes
     root.classList.remove("light", "dark")
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+    // Set theme name via data attribute
+    root.setAttribute("data-theme", themeName)
+
+    // Set mode class
+    if (mode === "system") {
+      const systemMode = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
         ? "dark"
         : "light"
 
-      root.classList.add(systemTheme)
+      root.classList.add(systemMode)
       return
     }
 
-    root.classList.add(theme)
-  }, [theme])
+    root.classList.add(mode)
+  }, [mode, themeName])
 
   const value = {
-    theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme)
-      setTheme(theme)
+    mode,
+    themeName,
+    theme: mode, // Legacy compatibility
+    setMode: (newMode: Mode) => {
+      localStorage.setItem(`${storageKey}-mode`, newMode)
+      setMode(newMode)
+    },
+    setThemeName: (newTheme: ThemeName) => {
+      localStorage.setItem(`${storageKey}-name`, newTheme)
+      setThemeName(newTheme)
+    },
+    setTheme: (newMode: Mode) => { // Legacy compatibility
+      localStorage.setItem(`${storageKey}-mode`, newMode)
+      setMode(newMode)
     },
   }
 
@@ -71,3 +102,5 @@ export const useTheme = () => {
 
   return context
 }
+
+export type { Mode, ThemeName }

@@ -20,7 +20,7 @@ from app.schemas import ReportOut
 router = APIRouter()
 
 
-@router.get("/", response_model=ReportOut)
+@router.get("", response_model=ReportOut)
 def get_report(
     report_type: str = Query(
         ...,
@@ -48,8 +48,18 @@ def get_report(
     db: Session = Depends(get_db),
 ):
     # Convert datetime to date if provided
+    # Handle timezone edge cases: if end datetime is the 1st of a month early in the day (< 12 hours),
+    # it's likely a timezone-shifted end-of-month date, so subtract 1 day before converting to date
+    from dateutil.relativedelta import relativedelta
+
     start_date = start.date() if start else None
-    end_date = end.date() if end else None
+    end_date = None
+    if end:
+        if end.day == 1 and end.hour < 12:
+            # Likely timezone-shifted end-of-month (e.g., Mar 31 23:59 PDT -> Apr 1 06:59 UTC)
+            end_date = (end - relativedelta(days=1)).date()
+        else:
+            end_date = end.date()
 
     if report_type == "category_trends":
         if not start_date or not end_date:

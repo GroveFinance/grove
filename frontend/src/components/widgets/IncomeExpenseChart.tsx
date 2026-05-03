@@ -43,10 +43,10 @@ export default function IncomeExpenseChart({
     return ids
   }, [groups])
 
-  const handleBarClick = (data: any) => {
+  const handleBarClick = (data: Record<string, unknown>) => {
     if (data && data.month) {
       // Parse the YYYY-MM format to get the month
-      const [year, month] = data.month.split('-').map(Number);
+      const [year, month] = (data.month as string).split('-').map(Number);
 
       // Create date for the first day of the month at 00:00:00
       const firstDay = startOfDay(new Date(year, month - 1, 1));
@@ -75,7 +75,7 @@ export default function IncomeExpenseChart({
     <Widget title={title} data={query.data}>
       {(data: ReportOut | undefined) => {
         if (query.isLoading) return <div>Loading...</div>
-        if (query.error || !data?.data.length)
+        if (query.error || !data?.data?.length)
           return <EmptyState dateRange={dateRange} type="transactions" />
 
         // Transform data - keep income and expense in same data point

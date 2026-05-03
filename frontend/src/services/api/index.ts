@@ -54,6 +54,7 @@ export const getOrgs = USE_MOCK ? mockAPI.getOrgs : realOrgs.getOrg;  // Note: r
 export type { TransactionUpdatePayload, TransactionSummary } from "./transactions";
 export type { GetHoldingsParams } from "./holdings";
 export type { DuplicateGroup } from "./accounts";
+export type { GetPayeesOptions } from "./payee";
 
 // Sync API - conditionally mock
 import * as realSync from "./sync";
@@ -68,3 +69,6 @@ export const getSyncRuns: typeof realSync.getSyncRuns = USE_MOCK ? mockAPI.getSy
 
 // Account balance is always from real API (not critical for demo)
 export * from "./account_balance";
+
+// System API - always from real API (no mock needed)
+export * from "./system";

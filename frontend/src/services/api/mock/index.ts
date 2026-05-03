@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Mock API implementation
  * Provides a drop-in replacement for the real API using generated mock data
@@ -415,8 +416,9 @@ export async function deleteGroup(id: number): Promise<{ success: boolean }> {
 // Payee API
 // ============================================================================
 
-export async function getPayees(): Promise<Payee[]> {
+export async function getPayees(_options?: { excludeInvestment?: boolean }): Promise<Payee[]> {
   await delay();
+  // Mock doesn't filter by investment - returns all payees
   return store.getData().payees;
 }
 

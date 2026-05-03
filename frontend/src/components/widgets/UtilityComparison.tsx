@@ -86,7 +86,7 @@ export default function UtilityComparison({
         start: currentStart.toISOString(),
         end: currentEnd.toISOString(),
       })
-      return fetchJSON<{ data: UtilityDataPoint[] }>(`/report/?${params}`)
+      return fetchJSON<{ data: UtilityDataPoint[] }>(`/report?${params}`)
     },
   })
 
@@ -100,7 +100,7 @@ export default function UtilityComparison({
         start: lastYearStart.toISOString(),
         end: lastYearEnd.toISOString(),
       })
-      return fetchJSON<{ data: UtilityDataPoint[] }>(`/report/?${params}`)
+      return fetchJSON<{ data: UtilityDataPoint[] }>(`/report?${params}`)
     },
   })
 
@@ -216,8 +216,15 @@ export default function UtilityComparison({
               dataKey="this_period"
               fill="var(--primary)"
               radius={[0, 4, 4, 0]}
-              shape={(props: any) => {
-                const { x, y, width, height, payload, background } = props
+              shape={(props: Record<string, unknown>) => {
+                const { x, y, width, height, payload, background } = props as {
+                  x: number;
+                  y: number;
+                  width: number;
+                  height: number;
+                  payload: { last_year: number };
+                  background?: { x: number; width: number };
+                }
                 const lastYearValue = payload.last_year
 
                 // Calculate x position for last year marker if it exists
@@ -285,7 +292,7 @@ export default function UtilityComparison({
       }
 
       // Group by month, with each category as a separate bar
-      const monthlyData: { [month: string]: any } = {}
+      const monthlyData: Record<string, Record<string, string | number>> = {}
       currentData.forEach((item) => {
         if (!item.month) return
         if (!monthlyData[item.month]) {
@@ -313,7 +320,7 @@ export default function UtilityComparison({
           color: colors[idx % colors.length],
         }
         return acc
-      }, {} as any)
+      }, {} as Record<string, { label: string; color: string }>)
 
       return (
         <ChartContainer config={monthlyChartConfig} className="min-h-[300px] w-full">

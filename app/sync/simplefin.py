@@ -207,9 +207,9 @@ def run(
         if not updated_config:
             logger.warning("Could not fetch credentials, skipping sync")
             if sync_run:
-                sync_run.status = "failed"
-                sync_run.error_message = "Could not fetch credentials"
-                sync_run.completed_at = datetime.now(UTC)
+                sync_run.status = "failed"  # type: ignore[assignment]
+                sync_run.error_message = "Could not fetch credentials"  # type: ignore[assignment]
+                sync_run.completed_at = datetime.now(UTC)  # type: ignore[assignment]
                 db.commit()
             return
 
@@ -264,21 +264,21 @@ def run(
 
         # Update sync run with success
         if sync_run:
-            sync_run.status = "completed"
-            sync_run.completed_at = datetime.now(UTC)
-            sync_run.accounts_processed = len(stats["accounts"])  # type: ignore[arg-type]
-            sync_run.transactions_found = stats["total_transactions"]
-            sync_run.holdings_found = stats["total_holdings"]
-            sync_run.details = stats["accounts"]
+            sync_run.status = "completed"  # type: ignore[assignment]
+            sync_run.completed_at = datetime.now(UTC)  # type: ignore[assignment]
+            sync_run.accounts_processed = len(stats["accounts"])  # type: ignore[assignment,arg-type]
+            sync_run.transactions_found = stats["total_transactions"]  # type: ignore[assignment]
+            sync_run.holdings_found = stats["total_holdings"]  # type: ignore[assignment]
+            sync_run.details = stats["accounts"]  # type: ignore[assignment]
 
         db.commit()
 
     except Exception as e:
         logger.exception(f"Sync failed: {e}")
         if sync_run:
-            sync_run.status = "failed"
-            sync_run.error_message = str(e)
-            sync_run.completed_at = datetime.now(UTC)
+            sync_run.status = "failed"  # type: ignore[assignment]
+            sync_run.error_message = str(e)  # type: ignore[assignment]
+            sync_run.completed_at = datetime.now(UTC)  # type: ignore[assignment]
             db.commit()
         raise
 
@@ -369,7 +369,7 @@ def process_initial_sync(
     cfg: dict, db: Session, config: SyncConfigOut, stats: dict[str, Any] | None = None
 ):
     """Walk backwards month by month until 2 consecutive months with no data or max months reached."""
-    end = datetime.now(UTC).replace(day=1)
+    end = datetime.now(UTC)
     empty_months = 0
     months_synced = 0
 
@@ -507,6 +507,9 @@ def process_sync_range(
     if total_txns > 0:
         logger.info(f"Processed {total_txns} transactions between {start.date()} and {end.date()}")
 
+    # Classify any accounts that still don't have a type (uses transaction patterns)
+    classify_accounts(db)
+
     return total_txns
 
 
@@ -606,16 +609,14 @@ def process_accounts(db: Session, accounts: list[dict], org_id: str):
     for acct in accounts:
         acct["org_id"] = org_id
         account_id = acct["id"]
-        data = AccountCreate(**acct)
-        existing = account_crud.get_accounts(db=db, account_id=account_id, is_hidden=True)
+        # Check if account exists (regardless of hidden status)
+        existing = account_crud.get_accounts(db=db, account_id=account_id)
 
         # Classify only if account_type is missing
         if not existing or existing[0].account_type is None:
             acct_type_str = classify_account(acct)
-            from app.models import AccountType
-
             if acct_type_str:
-                data.account_type = AccountType(acct_type_str)
+                acct["account_type"] = acct_type_str
 
         if existing:
             account_crud.update_account(db, account_id, AccountUpdate(**acct))
@@ -755,7 +756,7 @@ def classify_accounts(db: Session):
     """
     keywords = {
         "credit_card": ["card", "credit", "visa", "mastercard", "amex", "discover"],
-        "bank_account": [
+        "bank": [
             "checking",
             "spending",
             "savings",
@@ -818,7 +819,7 @@ def classify_accounts(db: Session):
                 if signs["negative"] > signs["positive"]:
                     acct_type = "credit_card"
                 else:
-                    acct_type = "bank_account"
+                    acct_type = "bank"
 
         # 4. Available balance heuristic
         if not acct_type and getattr(account, "available_balance", None) == 0:

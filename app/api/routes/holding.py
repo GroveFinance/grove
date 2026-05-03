@@ -10,7 +10,7 @@ from app.schemas import HoldingCreate, HoldingOut, HoldingUpdate
 router = APIRouter()
 
 
-@router.post("/", response_model=HoldingOut, operation_id="create_holding")
+@router.post("", response_model=HoldingOut, operation_id="create_holding")
 def create(data: HoldingCreate, db: Session = Depends(get_db)):
     return crud.create_holding(db, data)
 
@@ -23,7 +23,7 @@ def read(id: str, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/", response_model=list[HoldingOut], operation_id="list_holdings")
+@router.get("", response_model=list[HoldingOut], operation_id="list_holdings")
 def list_holdings(
     account_id: str | None = None,
     created_start: datetime | None = Query(None),

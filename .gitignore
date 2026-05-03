@@ -2,12 +2,14 @@
 *.py[cod]
 *.pyo
 *.pyd
+.ruff_cache/
 
 test.py
 .env
 .env.local
 *.json
 *.local.yaml
+CLAUDE.local.md
 .DS_Store
 
 # Frontend environment files (but keep examples and presets)

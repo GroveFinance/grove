@@ -122,6 +122,7 @@ def get_transactions(
     excluded_category_ids: list[int] | None = None,
     payee_ids: list[int] | None = None,
     payee_name: str | None = None,
+    payee_match_type: str | None = "contains",
     transacted_start: datetime | None = None,
     transacted_end: datetime | None = None,
     skip: int = 0,
@@ -187,9 +188,21 @@ def get_transactions(
         query = query.filter(models.Transaction.payee_id.in_(payee_ids))
 
     if payee_name:
-        query = query.filter(
-            models.Transaction.payee.has(models.Payee.name.ilike(f"%{payee_name}%"))
-        )
+        # Apply match type filter
+        if payee_match_type == "exact":
+            query = query.filter(models.Transaction.payee.has(models.Payee.name.ilike(payee_name)))
+        elif payee_match_type == "starts":
+            query = query.filter(
+                models.Transaction.payee.has(models.Payee.name.ilike(f"{payee_name}%"))
+            )
+        elif payee_match_type == "ends":
+            query = query.filter(
+                models.Transaction.payee.has(models.Payee.name.ilike(f"%{payee_name}"))
+            )
+        else:  # contains (default)
+            query = query.filter(
+                models.Transaction.payee.has(models.Payee.name.ilike(f"%{payee_name}%"))
+            )
 
     if transacted_start:
         query = query.filter(models.Transaction.transacted_at >= transacted_start)
@@ -228,6 +241,7 @@ def get_transactions_summary(
     excluded_category_ids: list[int] | None = None,
     payee_ids: list[int] | None = None,
     payee_name: str | None = None,
+    payee_match_type: str | None = "contains",
     transacted_start: datetime | None = None,
     transacted_end: datetime | None = None,
     skip_transfers: bool = False,
@@ -303,9 +317,21 @@ def get_transactions_summary(
         query = query.filter(models.Transaction.payee_id.in_(payee_ids))
 
     if payee_name:
-        query = query.filter(
-            models.Transaction.payee.has(models.Payee.name.ilike(f"%{payee_name}%"))
-        )
+        # Apply match type filter
+        if payee_match_type == "exact":
+            query = query.filter(models.Transaction.payee.has(models.Payee.name.ilike(payee_name)))
+        elif payee_match_type == "starts":
+            query = query.filter(
+                models.Transaction.payee.has(models.Payee.name.ilike(f"{payee_name}%"))
+            )
+        elif payee_match_type == "ends":
+            query = query.filter(
+                models.Transaction.payee.has(models.Payee.name.ilike(f"%{payee_name}"))
+            )
+        else:  # contains (default)
+            query = query.filter(
+                models.Transaction.payee.has(models.Payee.name.ilike(f"%{payee_name}%"))
+            )
 
     if transacted_start:
         query = query.filter(models.Transaction.transacted_at >= transacted_start)

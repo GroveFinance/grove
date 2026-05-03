@@ -1,8 +1,3 @@
-<style>
-  table td {
-    border: none !important;
-  }
-</style>
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="frontend/public/grove_dark.png">
@@ -29,22 +24,14 @@ Grove is my attempt to build a modern, self-hosted personal finance manager that
 
 ## Why Grove?
 
-<table border="0" width="100%">
-  <tr>
-    <td style="vertical-align: top;">
-      <picture>
-         <source media="(prefers-color-scheme: dark)" srcset="images/dark.png">
-         <source media="(prefers-color-scheme: light)" srcset="images/light.png">
-         <img alt="Grove" src="frontend/public/grove_light.png">
-      </picture>
-    </td>
-    <td style="vertical-align: top; padding-left: 16px;">
-      <p>
-        Im just a squirrel trying to keep track of my nuts. I was a mildly happy user of Mint but once it shutdown I wasnt able to find the right replacement. A lot of the newer tools were more than i wanted to spend and focused far too much on budgeting and less on overall financial tracking. I also wanted something I could self-host to ensure my financial data stayed private and secure. Grove is designed to be simple to set up and use, while still providing powerful features for managing your finances.
-      </p>
-    </td>
-  </tr>
-</table>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="images/light.png">
+  <img alt="Grove" src="frontend/public/grove_light.png">
+</picture>
+
+Im just a squirrel trying to keep track of my nuts. I was a mildly happy user of Mint but once it shutdown I wasnt able to find the right replacement. A lot of the newer tools were more than i wanted to spend and focused far too much on budgeting and less on overall financial tracking. I also wanted something I could self-host to ensure my financial data stayed private and secure. Grove is designed to be simple to set up and use, while still providing powerful features for managing your finances.
+
 
 
 ## Getting Started
@@ -60,7 +47,7 @@ Grove is my attempt to build a modern, self-hosted personal finance manager that
 1. **Get the Docker Compose File**
    
    ```bash
-   curl -o docker-compose.yml https://raw.githubusercontent.com/grovefinance/grove/main/docker-compose.yml
+   curl -o docker-compose.yaml https://raw.githubusercontent.com/grovefinance/grove/main/docker-compose.yaml
    ``` 
 
 2. **Configure Environment Variables**

@@ -1,8 +1,8 @@
 import threading
 from datetime import UTC, datetime, timedelta
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore[import-untyped]
+from apscheduler.triggers.cron import CronTrigger  # type: ignore[import-untyped]
 from sqlalchemy.orm import Session
 
 from app.crud import sync_config
@@ -99,6 +99,19 @@ def _build_job(config, from_date=None, capture_raw=False):
 
         except Exception as e:
             logger.exception(f"Sync failed for {config.name}: {e}")
+            # Mark sync run as failed
+            try:
+                from app.models import SyncRun
+
+                sync_run = db.query(SyncRun).filter(SyncRun.id == sync_run.id).first()
+                if sync_run:
+                    sync_run.status = "failed"
+                    sync_run.error_message = str(e)
+                    sync_run.completed_at = datetime.now(UTC)
+                    db.commit()
+                    logger.info(f"Marked sync_run {sync_run.id} as failed")
+            except Exception as update_error:
+                logger.error(f"Failed to update sync_run status: {update_error}")
         finally:
             db.close()
 

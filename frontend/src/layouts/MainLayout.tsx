@@ -1,10 +1,13 @@
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "../components/ui/breadcrumb"
 import { Separator } from "../components/ui/separator"
 import { SidebarTrigger } from "../components/ui/sidebar"
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSyncSettings } from "@/hooks/useSyncSettings";
+import { useGlobalSyncStatus } from "@/hooks/useGlobalSyncStatus";
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -13,6 +16,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, title }: MainLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathParts = location.pathname.split("/").filter(Boolean);
   const pageName = pathParts[pathParts.length - 1] || "Home";
 
@@ -21,6 +25,7 @@ export function MainLayout({ children, title }: MainLayoutProps) {
     finalPageName.charAt(0).toUpperCase() + finalPageName.slice(1);
 
   const { data: syncData } = useSyncSettings("simplefin");
+  const { isSyncing, triggerSyncNow } = useGlobalSyncStatus();
   const [syncAge, setSyncAge] = useState<string>("");
 
   // Update sync age every minute
@@ -36,6 +41,18 @@ export function MainLayout({ children, title }: MainLayoutProps) {
 
     return () => clearInterval(interval);
   }, [syncData?.last_sync]);
+
+  const hasErrors = syncData?.errors && syncData.errors.trim() !== "";
+
+  const handleSyncClick = () => {
+    if (isSyncing || hasErrors) {
+      // If syncing or has errors, navigate to sync settings page
+      navigate("/settings/sync");
+    } else {
+      // If not syncing and no errors, trigger a sync
+      triggerSyncNow();
+    }
+  };
 
   return (
     <div className="flex h-screen">
@@ -53,9 +70,28 @@ export function MainLayout({ children, title }: MainLayoutProps) {
               </BreadcrumbList>
             </Breadcrumb>
             {syncAge && (
-              <div className="ml-auto text-xs text-muted-foreground">
-                Synced {syncAge}
-              </div>
+              <button
+                onClick={handleSyncClick}
+                className={cn(
+                  "ml-auto text-xs transition-colors cursor-pointer",
+                  isSyncing
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title={
+                  isSyncing
+                    ? "Click to view sync details"
+                    : hasErrors
+                    ? "Sync errors - click to view"
+                    : "Click to sync now"
+                }
+              >
+                <div className="flex items-center gap-1.5">
+                  {isSyncing && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {!isSyncing && hasErrors && <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-500" />}
+                  <span>{isSyncing ? "Syncing..." : `Synced ${syncAge}`}</span>
+                </div>
+              </button>
             )}
           </div>
         </header>

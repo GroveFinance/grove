@@ -8,7 +8,7 @@ export async function getAccounts(params: GetAccountsParams = {}): Promise<Accou
   if (params?.is_hidden !== undefined) query.append("is_hidden", String(params.is_hidden))
   if (params?.account_id) query.append("account_id", params.account_id)
 
-  const endpoint = `/account/${query.toString() ? `?${query.toString()}` : ""}`
+  const endpoint = query.toString() ? `/account?${query.toString()}` : "/account"
 
   return fetchJSON<Account[]>(endpoint)
 }
@@ -55,7 +55,7 @@ export interface DuplicateGroup {
 
 /** GET /api/account/duplicates */
 export async function getDuplicateAccounts(): Promise<DuplicateGroup[]> {
-  return fetchJSON<DuplicateGroup[]>("/account/duplicates/");
+  return fetchJSON<DuplicateGroup[]>("/account/duplicates");
 }
 
 export interface MergeRequest {
@@ -76,7 +76,7 @@ export interface MergeResponse {
 
 /** POST /api/account/merge */
 export async function mergeAccounts(request: MergeRequest): Promise<MergeResponse> {
-  return fetchJSON<MergeResponse>("/account/merge/", {
+  return fetchJSON<MergeResponse>("/account/merge", {
     method: "POST",
     body: JSON.stringify(request),
   });

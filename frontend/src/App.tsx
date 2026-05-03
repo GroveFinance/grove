@@ -2,6 +2,7 @@ import { AppSidebar } from "./components/app-sidebar"
 import { ThemeProvider } from "./components/theme-provider"
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar"
 import { Toaster } from "./components/ui/sonner"
+import { ConnectionStatus } from "./components/ConnectionStatus"
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import OverviewPage from "./pages/OverviewPage"
 import InvestmentsPage from "./pages/InvestmentsPage"
@@ -18,7 +19,7 @@ import AppWrapper from "./components/appwrapper"
 
 export default function App() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultMode="dark" defaultTheme="grove" storageKey="vite-ui-theme">
       <Router basename={import.meta.env.BASE_URL}>
         <SidebarProvider>
           <AppSidebar />
@@ -40,6 +41,7 @@ export default function App() {
           </SidebarInset>
         </SidebarProvider>
         <Toaster />
+        <ConnectionStatus />
       </Router>
     </ThemeProvider>
   )

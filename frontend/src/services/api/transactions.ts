@@ -13,6 +13,7 @@ export async function getTransactions(
   params.excluded_category_ids?.forEach(id => query.append("excluded_category_ids", id.toString()))
   params.payee_ids?.forEach(id => query.append("payee_ids", id.toString()))
   if (params.payee_name) query.append("payee_name", params.payee_name)
+  if (params.payee_match_type) query.append("payee_match_type", params.payee_match_type)
 
   if (params.transacted_range?.from) query.append("transacted_start", params.transacted_range.from.toISOString())
   if (params.transacted_range?.to) query.append("transacted_end", params.transacted_range.to.toISOString())
@@ -25,7 +26,7 @@ export async function getTransactions(
   params.account_types?.forEach(type => query.append("account_types", type))
   params.exclude_account_types?.forEach(type => query.append("exclude_account_types", type))
 
-  const url = `/transaction/?${query.toString()}`
+  const url = `/transaction?${query.toString()}`
   return fetchJSON<Transaction[]>(url)
 }
 
@@ -68,6 +69,7 @@ export async function getTransactionsSummary(
   params.excluded_category_ids?.forEach(id => query.append("excluded_category_ids", id.toString()))
   params.payee_ids?.forEach(id => query.append("payee_ids", id.toString()))
   if (params.payee_name) query.append("payee_name", params.payee_name)
+  if (params.payee_match_type) query.append("payee_match_type", params.payee_match_type)
 
   if (params.transacted_range?.from) query.append("transacted_start", params.transacted_range.from.toISOString())
   if (params.transacted_range?.to) query.append("transacted_end", params.transacted_range.to.toISOString())

@@ -45,7 +45,7 @@ export default function BudgetUsageWidget({
     <Widget title={title} data={query.data}>
       {(data: ReportOut<BudgetUsageDataPoint> | undefined) => {
         if (query.isLoading) return <div>Loading...</div>
-        if (query.error || !data?.data.length)
+        if (query.error || !data?.data?.length)
           return <EmptyState dateRange={dateRange} type="spending" />
 
         return (

@@ -64,7 +64,8 @@ type Props = BaseProps &
 
 export default function AccountCombobox(props: Props) {
   const [open, setOpen] = useState(false);
-  const { data: allAccounts, isLoading } = useAccounts();
+  // Only show visible accounts in the combobox by default
+  const { data: allAccounts, isLoading } = useAccounts({ is_hidden: false });
 
   // Filter accounts based on includeTypes/excludeTypes
   const accounts = allAccounts?.filter(account => {

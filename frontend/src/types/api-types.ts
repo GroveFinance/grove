@@ -79,6 +79,7 @@ export interface Payee {
   name: string;
   category_id: number;
   category: Category;
+  transaction_count: number;
 }
 
 export interface Org {
@@ -210,4 +211,17 @@ export interface Holding {
   purchase_price: string; // Decimal as string
   shares: string; // Decimal as string
   symbol: string;
+}
+
+export interface VersionInfo {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+  release_url: string | null;
+  released_at: string | null;
+}
+
+export interface SystemInfo {
+  version: VersionInfo;
+  environment: string;
 }

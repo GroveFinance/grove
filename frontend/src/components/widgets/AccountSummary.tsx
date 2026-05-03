@@ -73,7 +73,8 @@ function AccountTable({ title, accounts, defaultOpen = false }: AccountTableProp
 
 export default function AccountSummary({ title, className }: AccountSummaryWidgetProps) {
 
-  const { data: accounts } = useAccounts();
+  // Only show visible accounts in the widget
+  const { data: accounts } = useAccounts({ is_hidden: false });
 
   const groupedAccounts = (accounts ?? []).reduce(
     (acc: Record<string, Account[]>, acct) => {

@@ -30,14 +30,15 @@ def create_account(db: Session, data: AccountCreate) -> Account:
 # and in case we need to use it later
 def get_accounts(
     db: Session,
-    is_hidden: bool | None = False,
+    is_hidden: bool | None = None,  # None = all accounts, True = hidden only, False = visible only
     org_id: str | None = None,
     account_id: str | None = None,
 ) -> list[Account]:
     query = db.query(Account)
 
-    if not is_hidden:
-        query = query.filter(Account.is_hidden == False)  # noqa: E712
+    # Filter by hidden status: None = all, True = hidden only, False = visible only
+    if is_hidden is not None:
+        query = query.filter(Account.is_hidden == is_hidden)
 
     if org_id:
         query = query.filter(Account.org_id == org_id)
@@ -484,7 +485,7 @@ def get_account_details(
     db: Session,
     account_id: str | None = None,
     org_id: str | None = None,
-    is_hidden: bool | None = False,
+    is_hidden: bool | None = None,  # None = all accounts, True = hidden only, False = visible only
 ) -> list[AccountDetailsOut]:
     # 1. Create a subquery to find the latest balance_date for each account.
     # This is a common and efficient pattern for "latest record" problems.
@@ -535,8 +536,9 @@ def get_account_details(
         query = query.filter(Account.id == account_id)
     if org_id is not None:
         query = query.filter(Account.org_id == org_id)
-    if not is_hidden:
-        query = query.filter(Account.is_hidden == False)  # noqa: E712
+    # Filter by hidden status: None = all, True = hidden only, False = visible only
+    if is_hidden is not None:
+        query = query.filter(Account.is_hidden == is_hidden)
 
     # 5. Order by account name for consistency
     query = query.order_by(Org.name.asc(), Account.name.asc())

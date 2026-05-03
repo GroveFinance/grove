@@ -10,6 +10,8 @@ export function useUpdatePayee() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payees"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-infinite"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-summary"] });
     },
     onError: (error) => {
       console.error("Error updating payee:", error);
@@ -17,6 +19,8 @@ export function useUpdatePayee() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["payees"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-infinite"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-summary"] });
     }
   });
 }

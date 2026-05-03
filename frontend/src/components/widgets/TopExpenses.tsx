@@ -1,7 +1,7 @@
 "use client"
 
 import Widget from "@/components/widgets/Widget"
-import { useTopTransactions } from "@/hooks/queries/reports"
+import { useTopExpenses } from "@/hooks/queries/reports"
 import { useGroups } from "@/hooks/queries/useGroups"
 import { useNavigate } from "react-router-dom"
 import { useMemo } from "react"
@@ -18,17 +18,17 @@ import { cn } from "@/lib/utils"
 import EmptyState from "@/components/ui/EmptyState"
 import type { TopTransactionDataPoint } from "@/types/api-types"
 
-interface TopTransactionsWidgetProps {
+interface TopExpensesWidgetProps {
   limit?: number
   dateRange?: DateRange
   title?: string
 }
 
-export default function TopTransactionsWidget({
+export default function TopExpensesWidget({
   limit = 5,
   dateRange,
-  title = "Top Transactions",
-}: TopTransactionsWidgetProps) {
+  title = "Top Expenses",
+}: TopExpensesWidgetProps) {
   const navigate = useNavigate()
   const { data: groups } = useGroups()
 
@@ -52,7 +52,7 @@ export default function TopTransactionsWidget({
   // - Excluding investment accounts
   // - Excluding hidden accounts
   // - Category fallback logic
-  const reportQuery = useTopTransactions({
+  const reportQuery = useTopExpenses({
     dateRange,
     limit,
   })

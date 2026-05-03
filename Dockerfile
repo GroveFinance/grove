@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
 
+ARG APP_VERSION=dev
+
 # Stage 1: Build frontend
 FROM node:22 AS frontend-builder
 
@@ -19,6 +21,9 @@ RUN npm run build
 
 # Stage 2: Build backend with frontend assets
 FROM python:3.12-slim
+
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \

@@ -565,7 +565,11 @@ def get_income_vs_expenses(
         ).group_by(func.date_trunc("month", models.Transaction.transacted_at))
     ).subquery()
 
-    # Build query for paycheck income specifically (category_id = 51)
+    # Build query for paycheck income specifically
+    # Look up the Paycheck category ID dynamically
+    paycheck_category = db.query(models.Category).filter(models.Category.name == "Paycheck").first()
+    paycheck_category_id = paycheck_category.id if paycheck_category else None
+
     # Get the effective category ID using fallback logic
     effective_category_id = get_effective_category_id()
 
@@ -578,15 +582,28 @@ def get_income_vs_expenses(
         exclude_account_types=exclude_account_types,
     )
 
-    # Filter for Paycheck category (id 51) using the effective category
-    paycheck_query = (
-        paycheck_base.filter(effective_category_id == 51)
-        .with_entities(
-            func.date_trunc("month", models.Transaction.transacted_at).label("month"),
-            func.sum(models.TransactionSplit.amount).label("paycheck_income"),
+    # Filter for Paycheck category using the effective category
+    if paycheck_category_id:
+        paycheck_query = (
+            paycheck_base.filter(effective_category_id == paycheck_category_id)
+            .with_entities(
+                func.date_trunc("month", models.Transaction.transacted_at).label("month"),
+                func.sum(models.TransactionSplit.amount).label("paycheck_income"),
+            )
+            .group_by(func.date_trunc("month", models.Transaction.transacted_at))
+        ).subquery()
+    else:
+        # No paycheck category exists, create empty subquery
+        from sqlalchemy import literal_column, select
+
+        paycheck_query = (
+            select(
+                literal_column("NULL::timestamp").label("month"),
+                literal_column("0::numeric").label("paycheck_income"),
+            )
+            .where(literal_column("1=0"))
+            .subquery()
         )
-        .group_by(func.date_trunc("month", models.Transaction.transacted_at))
-    ).subquery()
 
     # Build base query for expenses (negative amounts, excluding transfers)
     expense_base = build_base_split_query(
@@ -924,7 +941,28 @@ def get_paycheck_analysis(
     if exclude_account_types is None:
         exclude_account_types = ["investment"]
 
-    # Get all paycheck transactions (category_id = 51)
+    # Get all paycheck transactions
+    # Look up the Paycheck category ID dynamically
+    paycheck_category = db.query(models.Category).filter(models.Category.name == "Paycheck").first()
+
+    if not paycheck_category:
+        # No Paycheck category exists - return empty result
+        return {
+            "paychecks": [],
+            "summary": {
+                "total_count": 0,
+                "average_amount": 0,
+                "median_amount": 0,
+                "std_deviation": 0,
+                "min_amount": 0,
+                "max_amount": 0,
+                "total_income": 0,
+            },
+            "by_payee": {},
+            "trend": "insufficient_data",
+            "anomalies": [],
+        }
+
     # Query at the Transaction level so we can use apply_category_filter
     from app.crud.query_builder import (
         apply_account_type_filters,
@@ -946,8 +984,8 @@ def get_paycheck_analysis(
     # Apply transfer exclusion
     query = apply_transfer_exclusion_transaction_level(query, db)
 
-    # Apply category filter for Paycheck (category_id = 51) using proper fallback logic
-    query = apply_category_filter(query, [51], db)
+    # Apply category filter for Paycheck using proper fallback logic
+    query = apply_category_filter(query, [paycheck_category.id], db)  # type: ignore[list-item]
 
     # Filter for income only (positive amounts)
     # Need to check that at least one split is positive
@@ -968,7 +1006,7 @@ def get_paycheck_analysis(
                     if split.category_id != 0
                     else (txn.payee.category_id if txn.payee else 0)
                 )
-                if effective_cat == 51:
+                if effective_cat == paycheck_category.id:
                     rows.append(
                         {
                             "id": txn.id,

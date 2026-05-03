@@ -88,7 +88,7 @@ const PAYEE_TEMPLATES: PayeeTemplate[] = [
 
 export function generatePayees(
   categories: Category[],
-  _rng: SeededRandom
+  rng: SeededRandom
 ): Payee[] {
   const payees: Payee[] = [];
   let payeeId = 1;
@@ -98,11 +98,38 @@ export function generatePayees(
       (c) => c.name === template.categoryName
     ) || categories[0]; // Fallback to Uncategorized
 
+    // Generate realistic transaction counts based on frequency
+    let transactionCount = 0;
+    switch (template.frequency) {
+      case "daily":
+        transactionCount = rng.nextInt(100, 300); // 100-300 transactions
+        break;
+      case "weekly":
+        transactionCount = rng.nextInt(20, 60); // 20-60 transactions
+        break;
+      case "biweekly":
+        transactionCount = rng.nextInt(10, 30); // 10-30 transactions
+        break;
+      case "monthly":
+        transactionCount = rng.nextInt(5, 15); // 5-15 transactions
+        break;
+      case "quarterly":
+        transactionCount = rng.nextInt(1, 4); // 1-4 transactions
+        break;
+      case "annual":
+        transactionCount = rng.nextInt(1, 2); // 1-2 transactions
+        break;
+      default:
+        // For non-recurring payees (restaurants, gas stations, etc.)
+        transactionCount = rng.nextInt(5, 35); // 5-35 transactions
+    }
+
     payees.push({
       id: payeeId++,
       name: template.name,
       category_id: category.id,
       category: category,
+      transaction_count: transactionCount,
     });
   }
 

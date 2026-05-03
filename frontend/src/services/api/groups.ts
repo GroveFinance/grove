@@ -3,7 +3,7 @@ import type { Group, GroupUpdate, GroupCreate } from "@/types/api-types";
 
 
 export async function getGroups(): Promise<Group[]> {
-  return fetchJSON<Group[]>("/group/");
+  return fetchJSON<Group[]>("/group");
 }
 
 export async function updateGroup(
@@ -17,7 +17,7 @@ export async function updateGroup(
 }
 
 export async function createGroup(data: GroupCreate): Promise<Group> {
-  return fetchJSON<Group>("/group/", {
+  return fetchJSON<Group>("/group", {
     method: "POST",
     body: JSON.stringify(data),
   });

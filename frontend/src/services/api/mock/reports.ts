@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Mock report implementations
  */
@@ -550,10 +551,10 @@ export async function generateMockReport(
       const transactions = await getFilteredTransactions();
       const categories = getCategories();
 
-      // Find Paycheck or Salary category (backend uses Paycheck with id 51, mock may use Salary)
+      // Find Paycheck or Salary category (backend uses Paycheck with id 1, mock may use Salary)
       const paycheckCategory = categories.find((c: any) => c.name === "Paycheck") ||
         categories.find((c: any) => c.name === "Salary");
-      const paycheckCategoryId = paycheckCategory?.id || 51;
+      const paycheckCategoryId = paycheckCategory?.id || 1;
 
       // Filter for paycheck transactions (positive amounts in Paycheck category)
       const paycheckTransactions = transactions.filter((tx: any) => {

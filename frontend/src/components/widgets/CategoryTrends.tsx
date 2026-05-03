@@ -34,7 +34,7 @@ export default function CategoryTrendsWidget({
     <Widget title={title} data={query.data}>
       {(data: ReportOut | undefined) => {
         if (query.isLoading) return <div>Loading...</div>
-        if (query.error || !data?.data.length)
+        if (query.error || !data?.data?.length)
           return <EmptyState dateRange={dateRange} type="spending" />
 
         const chartData = (data.data ?? []).map((row: MonthSeries, idx) => ({
@@ -56,9 +56,10 @@ export default function CategoryTrendsWidget({
           chartConfig[row.category] = { label: row.category, color: row.fill }
         })
 
-        const handleClick = (entry: any) => {
-          if (entry?.categoryId === undefined) return;
+        const handleClick = (entry: Record<string, unknown>) => {
+          if (entry?.categoryId === undefined || entry.categoryId === null) return;
 
+          const categoryId = entry.categoryId as number;
           const params = new URLSearchParams();
 
           // Add date range if provided
@@ -69,7 +70,7 @@ export default function CategoryTrendsWidget({
             params.append('transacted_end', dateRange.to.toISOString());
           }
 
-          if (entry.categoryId === -1) {
+          if (categoryId === -1) {
             // "Other" category - exclude all the categories shown in the chart
             const shownCategoryIds = chartData
               .filter(item => item.categoryId !== -1)
@@ -80,7 +81,7 @@ export default function CategoryTrendsWidget({
             }
           } else {
             // Regular category - filter to show only this category
-            params.append('category_id', entry.categoryId.toString());
+            params.append('category_id', categoryId.toString());
           }
 
           // Investment accounts are excluded by default on TransactionsPage
@@ -96,16 +97,16 @@ export default function CategoryTrendsWidget({
               <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <ChartTooltip
                   content={<ChartTooltipContent nameKey="total" hideLabel />}
-                  formatter={(value: number, _name: string, props) => [
-                    value.toLocaleString(undefined, {
+                  formatter={(value: number, _name: string, props) => {
+                    const percent = ((value / totalSpent) * 100).toFixed(0);
+                    const amount = value.toLocaleString(undefined, {
                       style: "currency",
                       currency: "USD",
                       minimumFractionDigits: 0,
                       maximumFractionDigits: 0
-                    }),
-                    " - ",
-                    props.payload.category,
-                  ]}
+                    });
+                    return [`${props.payload.category} - ${percent}% • ${amount}`];
+                  }}
                 />
                 <Pie
                   data={chartData}
@@ -114,29 +115,50 @@ export default function CategoryTrendsWidget({
                   innerRadius="45%"
                   outerRadius="70%"
                   strokeWidth={2}
-                  label={({ cx, cy, midAngle, outerRadius, value }) => {
-                    // Format dollar amount with compact notation for large values
-                    const formatted = value > 9999
-                      ? `$${(value / 1000).toFixed(0)}k`
-                      : `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+                  label={({ cx, cy, midAngle, outerRadius, innerRadius, payload }) => {
+                    const categoryName = payload.category;
+                    const percent = ((payload.total / totalSpent) * 100).toFixed(0);
+                    const showPercentInside = (payload.total / totalSpent) * 100 >= 8;
 
-                    // Position label closer to the pie - reduced from default distance
                     const RADIAN = Math.PI / 180;
-                    const radius = outerRadius * 1.08; // Reduced from default ~1.2 to bring labels closer
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                    // Outer label (category name)
+                    const outerLabelRadius = outerRadius * 1.08;
+                    const outerX = cx + outerLabelRadius * Math.cos(-midAngle * RADIAN);
+                    const outerY = cy + outerLabelRadius * Math.sin(-midAngle * RADIAN);
+
+                    // Inner label (percentage) - positioned at midpoint between inner and outer radius
+                    const innerLabelRadius = (innerRadius + outerRadius) / 2;
+                    const innerX = cx + innerLabelRadius * Math.cos(-midAngle * RADIAN);
+                    const innerY = cy + innerLabelRadius * Math.sin(-midAngle * RADIAN);
 
                     return (
-                      <text
-                        x={x}
-                        y={y}
-                        fill="var(--foreground)"
-                        textAnchor={x > cx ? 'start' : 'end'}
-                        dominantBaseline="central"
-                        className="text-xs font-medium"
-                      >
-                        {formatted}
-                      </text>
+                      <g>
+                        {/* Outer label - category name */}
+                        <text
+                          x={outerX}
+                          y={outerY}
+                          fill="var(--foreground)"
+                          textAnchor={outerX > cx ? 'start' : 'end'}
+                          dominantBaseline="central"
+                          className="text-xs font-medium"
+                        >
+                          {categoryName}
+                        </text>
+                        {/* Inner label - percentage (only if >= 8%) */}
+                        {showPercentInside && (
+                          <text
+                            x={innerX}
+                            y={innerY}
+                            fill="var(--background)"
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            className="text-xs font-bold"
+                          >
+                            {percent}%
+                          </text>
+                        )}
+                      </g>
                     );
                   }}
                   labelLine={false}
@@ -187,7 +209,7 @@ export default function CategoryTrendsWidget({
                 </Pie>
               </PieChart>
             </ChartContainer>
-            {/* Compact legend with percentages */}
+            {/* Compact legend with percentages and amounts */}
             <div className="mt-0.5 grid grid-cols-2 gap-x-2 gap-y-1 text-xs flex-shrink-0">
               {chartDataWithPercent.map((item, index) => (
                 <div
@@ -197,7 +219,9 @@ export default function CategoryTrendsWidget({
                 >
                   <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: item.fill }} />
                   <span className="truncate flex-1">{item.category}</span>
-                  <span className="text-muted-foreground flex-shrink-0">{item.percent.toFixed(0)}%</span>
+                  <span className="text-muted-foreground flex-shrink-0">
+                    {item.percent.toFixed(0)}% • ${item.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
                 </div>
               ))}
             </div>

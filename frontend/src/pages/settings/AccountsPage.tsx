@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAccounts } from "@/hooks/queries/useAccounts"
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { updateAccount, deleteAccount, getDuplicateAccounts, mergeAccounts } from "@/services/api"
-import type { DuplicateGroup } from "@/services/api/accounts"
+import type { DuplicateGroup, DuplicateAccount } from "@/services/api/accounts"
 import type { Account, AccountType } from "@/types"
 import { ACCOUNT_TYPE_OPTIONS } from "@/types/api-types"
+import { ACCOUNTS_VISITED_KEY } from "@/hooks/useOnboardingProgress"
 import { MainLayout } from "@/layouts/MainLayout"
 import {
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -15,6 +16,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 export default function AccountSettingsPage() {
+  // Don't pass is_hidden param to show ALL accounts (both hidden and visible)
+  // Backend default is now None which means "all accounts"
   const { data: accounts = [] } = useAccounts()
   const { data: duplicates = [] } = useQuery({
     queryKey: ["account-duplicates"],
@@ -24,6 +27,11 @@ export default function AccountSettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [mergeConfirm, setMergeConfirm] = useState<{ source: string; target: string; group: DuplicateGroup } | null>(null)
   const [dismissedGroups, setDismissedGroups] = useState<Set<string>>(new Set())
+
+  // Mark accounts page as visited for onboarding
+  useEffect(() => {
+    localStorage.setItem(ACCOUNTS_VISITED_KEY, "true")
+  }, [])
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Account> }) =>
@@ -80,7 +88,7 @@ export default function AccountSettingsPage() {
   // Helper to check if account is in a duplicate group
   const isDuplicate = (accountId: string) => {
     return duplicates.some(group =>
-      group.accounts.some((acc: any) => acc.id === accountId)
+      group.accounts.some((acc: DuplicateAccount) => acc.account_id === accountId)
     )
   }
 
@@ -144,7 +152,7 @@ export default function AccountSettingsPage() {
                       {/* Show accounts with merge direction */}
                       <div className="bg-gray-50 dark:bg-gray-900 rounded p-3">
                         <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Accounts to merge:</p>
-                        {group.accounts.map((acc: any, accIdx: number) => {
+                        {group.accounts.map((acc: DuplicateAccount, accIdx: number) => {
                           const isLast = accIdx === group.accounts.length - 1
                           const displayName = acc.alt_name || acc.name
                           const balance = acc.balance !== null && acc.balance !== undefined
@@ -201,6 +209,7 @@ export default function AccountSettingsPage() {
               <TableHead>Organization</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Balance</TableHead>
+              <TableHead>Last Synced</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Display Name</TableHead>
               <TableHead>Type</TableHead>
@@ -209,7 +218,7 @@ export default function AccountSettingsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {accounts.map((acct) => {
+            {accounts.map((acct, index) => {
               const balance = acct.balance !== null && acct.balance !== undefined
                 ? new Intl.NumberFormat('en-US', {
                     style: 'currency',
@@ -223,15 +232,29 @@ export default function AccountSettingsPage() {
                     year: 'numeric'
                   })
                 : '—'
+              const lastSyncedDate = acct.balance_date
+                ? new Date(acct.balance_date).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })
+                : '—'
+
+              const rowClasses = isDuplicate(acct.account_id)
+                ? "bg-yellow-50 dark:bg-yellow-950/20"
+                : index % 2 === 0
+                  ? "bg-[var(--table-row-even)]"
+                  : "bg-[var(--table-row-odd)]"
 
               return (
                 <TableRow
                   key={acct.account_id}
-                  className={isDuplicate(acct.account_id) ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}
+                  className={rowClasses}
                 >
                   <TableCell>{acct.org_name || "N/A"}</TableCell>
                   <TableCell>{acct.name}</TableCell>
                   <TableCell className="text-right font-mono text-sm">{balance}</TableCell>
+                  <TableCell className="text-sm text-gray-600 dark:text-gray-400">{lastSyncedDate}</TableCell>
                   <TableCell className="text-sm text-gray-600 dark:text-gray-400">{createdDate}</TableCell>
                   <TableCell>
                     <Input

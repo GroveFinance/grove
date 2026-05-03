@@ -25,7 +25,7 @@ export default function NetWorthChart({
   })
 
   // Calculate percentage change for header
-  const headerActions = query.data && (query.data.data as unknown as NetWorthDataPoint[]).length >= 2 ? (
+  const headerActions = query.data?.data && (query.data.data as unknown as NetWorthDataPoint[]).length >= 2 ? (
     (() => {
       const rawData = query.data.data as unknown as NetWorthDataPoint[]
       const firstValue = rawData[0].net_worth
@@ -56,7 +56,7 @@ export default function NetWorthChart({
     <Widget title={title} data={query.data} headerActions={headerActions}>
       {(data: ReportOut | undefined) => {
         if (query.isLoading) return <div>Loading...</div>
-        if (query.error || !data?.data.length)
+        if (query.error || !data?.data?.length)
           return <div className="text-muted-foreground">No data</div>
 
         // Transform data

@@ -17,17 +17,17 @@ from app.schemas import (
 router = APIRouter()
 
 
-@router.get("/", response_model=list[AccountDetailsOut], operation_id="get_accounts")
+@router.get("", response_model=list[AccountDetailsOut], operation_id="get_accounts")
 def get_accounts(
     account_id: str | None = None,
     org_id: str | None = None,
-    is_hidden: bool | None = False,
+    is_hidden: bool | None = None,  # None = all accounts, True = hidden only, False = visible only
     db: Session = Depends(get_db),
 ):
     return crud.get_account_details(db, account_id=account_id, org_id=org_id, is_hidden=is_hidden)
 
 
-@router.post("/", response_model=AccountOut, operation_id="create_account")
+@router.post("", response_model=AccountOut, operation_id="create_account")
 def create_account(data: AccountCreate, db: Session = Depends(get_db)):
     return crud.create_account(db, data)
 

@@ -11,7 +11,7 @@ import type { DateRange } from "react-day-picker";
 import AccountSummary from "@/components/widgets/AccountSummary"
 import CategoryTrendsWidget from "@/components/widgets/CategoryTrends"
 import BudgetUsageWidget from "@/components/widgets/BudgetUsage"
-import TopTransactionsWidget from "@/components/widgets/TopTransactions"
+import TopExpensesWidget from "@/components/widgets/TopExpenses"
 import UtilityComparison from "@/components/widgets/UtilityComparison"
 import IncomeExpenseChart from "@/components/widgets/IncomeExpenseChart"
 import NetWorthChart from "@/components/widgets/NetWorthChart"
@@ -38,10 +38,12 @@ export default function OverviewPage() {
       };
     }
 
+    // selectedRange.to is already endOfDay(endOfMonth(selectedMonth)) from MonthSelector
+    // So we use it directly to avoid timezone issues from redundant transformations
     const selectedMonthEnd = selectedRange.to;
     return {
       from: startOfMonth(selectedMonthEnd), // Start of selected month
-      to: endOfDay(lastDayOfMonth(selectedMonthEnd)), // End of selected month
+      to: selectedMonthEnd, // Already at end of selected month
     };
   }, [selectedRange]);
 
@@ -56,10 +58,12 @@ export default function OverviewPage() {
       };
     }
 
+    // selectedRange.to is already endOfDay(endOfMonth(selectedMonth)) from MonthSelector
+    // So we use it directly to avoid timezone issues from redundant transformations
     const selectedMonthEnd = selectedRange.to;
     return {
       from: startOfMonth(subMonths(selectedMonthEnd, 5)), // 5 months before selected month
-      to: endOfDay(lastDayOfMonth(selectedMonthEnd)), // End of selected month
+      to: selectedMonthEnd, // Already at end of selected month
     };
   }, [selectedRange]);
 
@@ -71,7 +75,7 @@ export default function OverviewPage() {
     {w: 3, h: 4, x: 9, y: 3, i: 'paycheckAnalysis'},
     {w: 6, h: 3, x: 0, y: 7, i: 'incomeVsExpense'},
     {w: 6, h: 3, x: 6, y: 7, i: 'networth'},
-    {w: 6, h: 3, x: 0, y: 10, i: 'topTransactions'},
+    {w: 6, h: 3, x: 0, y: 10, i: 'topExpenses'},
     {w: 6, h: 3, x: 6, y: 10, i: 'utilities'},
   ])
 
@@ -95,7 +99,7 @@ export default function OverviewPage() {
         <div className="h-full" key="paycheckAnalysis"><PaycheckAnalysis title="Paycheck Analysis" dateRange={multiMonthRange} limit={5} /></div>
         <div className="h-full" key="incomeVsExpense"><IncomeExpenseChart dateRange={multiMonthRange} title="Income vs Expenses" /></div>
         <div className="h-full" key="networth"><NetWorthChart dateRange={multiMonthRange} title="Net Worth" /></div>
-        <div className="h-full" key="topTransactions"><TopTransactionsWidget dateRange={singleMonthRange} title="Top Transactions" /></div>
+        <div className="h-full" key="topExpenses"><TopExpensesWidget dateRange={singleMonthRange} title="Top Expenses" /></div>
         <div className="h-full" key="utilities"><UtilityComparison mode="period_comparison" title="Utility Spending Comparison" dateRange={singleMonthRange} /></div>
       </ResponsiveGridLayout>
     </MainLayout>

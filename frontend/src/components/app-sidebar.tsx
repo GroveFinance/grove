@@ -13,10 +13,13 @@ import {
   PieChart,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "./theme-provider";
 import { ModeToggle } from "./mode-toggle";
 import { GettingStarted } from "./GettingStarted";
+import { Badge } from "@/components/ui/badge";
+import { useSystemInfo } from "@/hooks/queries/useSystemInfo";
+import { VersionUpdateDialog } from "./VersionUpdateDialog";
 import {
   Sidebar,
   SidebarContent,
@@ -63,9 +66,20 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const sidebar = useSidebar();
   const { theme } = useTheme();
 
+  // Version checking
+  const { data: systemInfo } = useSystemInfo();
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+
+  // Check if update should be shown (not dismissed for this version)
+  const shouldShowUpdateBadge =
+    systemInfo?.version.update_available &&
+    systemInfo?.version.latest_version &&
+    localStorage.getItem("grove_dismissed_update") !== systemInfo.version.latest_version;
+
   // Auto-close on route change (mobile only)
   useEffect(() => {
     if (sidebar.isMobile) sidebar.setOpenMobile(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, sidebar.isMobile, sidebar.setOpenMobile]);
 
   const handleNavClick = () => {
@@ -84,11 +98,22 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="pb-0 pl-1">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton className={`pl-0 ${buttonClasses} hover:bg-transparent`}>
+            <SidebarMenuButton
+              className={`pl-0 ${buttonClasses} hover:bg-transparent ${shouldShowUpdateBadge ? "cursor-pointer" : ""}`}
+              onClick={() => shouldShowUpdateBadge && setShowUpdateDialog(true)}
+            >
               <LogoIcon />
               <span className="text-lg font-semibold tracking-tight">
                 Grove
               </span>
+              {shouldShowUpdateBadge && (
+                <Badge
+                  variant="outline"
+                  className="ml-auto text-xs text-primary border-primary"
+                >
+                  Update
+                </Badge>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -204,6 +229,14 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarFooter>
 
       <SidebarRail />
+
+      {systemInfo?.version && (
+        <VersionUpdateDialog
+          open={showUpdateDialog}
+          onOpenChange={setShowUpdateDialog}
+          versionInfo={systemInfo.version}
+        />
+      )}
     </Sidebar>
   );
 }

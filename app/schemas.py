@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from .models import AccountType
 
@@ -166,7 +166,30 @@ class PayeeUpdate(BaseModel):
 class PayeeOut(PayeeBase):
     id: int
     category: CategoryOut | None = None
+    transaction_count: int = 0
     model_config = ConfigDict(from_attributes=True)
+
+
+class PayeeImportResponse(BaseModel):
+    success: bool
+    mode: str
+    payees_created: int
+    payees_updated: int
+    payees_skipped: int
+    errors: list[str] = []
+    warnings: list[str] = []
+
+
+class CategoryImportResponse(BaseModel):
+    success: bool
+    mode: str
+    groups_created: int
+    groups_updated: int
+    categories_created: int
+    categories_updated: int
+    categories_skipped: int
+    errors: list[str] = []
+    warnings: list[str] = []
 
 
 # ===== Account =====
@@ -213,6 +236,13 @@ class AccountDetailsOut(BaseModel):
     balance_date: datetime | None = None
     created_at: datetime | None = None
     is_hidden: bool | None = Field(False, description="Whether this account is hidden from views")
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("balance")
+    def serialize_balance(self, value: Decimal | None) -> float | None:
+        """Convert Decimal to float for JSON serialization"""
+        return float(value) if value is not None else None
 
 
 class AccountMergeRequest(BaseModel):
@@ -467,3 +497,21 @@ class TopTransactionDataPoint(BaseModel):
     account: str | None
     amount: float
     description: str | None = None
+
+
+# ===== System Info =====
+class VersionInfo(BaseModel):
+    current_version: str = Field(..., description="Currently running version")
+    latest_version: str | None = Field(None, description="Latest available version from GitHub")
+    update_available: bool = Field(False, description="Whether an update is available")
+    release_url: str | None = Field(None, description="URL to GitHub release page")
+    released_at: str | None = Field(None, description="ISO timestamp of latest release")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SystemInfo(BaseModel):
+    version: VersionInfo
+    environment: str = Field(..., description="Environment (production, development)")
+
+    model_config = ConfigDict(from_attributes=True)

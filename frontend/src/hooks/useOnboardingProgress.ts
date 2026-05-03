@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { fetchJSON } from "@/services/api/base";
-import type { SyncItem, Category, Account, Payee } from "@/types";
+import type { SyncItem, Payee } from "@/types";
 
 export interface OnboardingStep {
   id: string;
@@ -18,52 +18,47 @@ interface OnboardingProgress {
   isDismissed: boolean;
   dismiss: () => void;
   restore: () => void;
+  refetch: () => void;
 }
 
 const DISMISSED_KEY = "grove_onboarding_dismissed";
+export const CATEGORIES_VISITED_KEY = "grove_categories_visited";
+export const ACCOUNTS_VISITED_KEY = "grove_accounts_visited";
 
 export function useOnboardingProgress(): OnboardingProgress {
   const [syncConfig, setSyncConfig] = useState<SyncItem | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [payees, setPayees] = useState<Payee[]>([]);
   const [isDismissed, setIsDismissed] = useState(() => {
     return localStorage.getItem(DISMISSED_KEY) === "true";
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch sync config
-        const sync = await fetchJSON<SyncItem>("/sync/simplefin").catch(() => null);
-        setSyncConfig(sync);
+  const fetchData = useCallback(async () => {
+    try {
+      // Fetch sync config
+      const sync = await fetchJSON<SyncItem>("/sync/simplefin").catch(() => null);
+      setSyncConfig(sync);
 
-        // Fetch categories
-        const cats = await fetchJSON<Category[]>("/category/").catch(() => []);
-        setCategories(cats);
-
-        // Fetch accounts (only non-hidden ones - good enough for onboarding check)
-        const accts = await fetchJSON<Account[]>("/account/").catch(() => []);
-        setAccounts(accts);
-
-        // Fetch payees (rules are payees with category_id !== 0)
-        const payeesData = await fetchJSON<Payee[]>("/payee/").catch(() => []);
-        setPayees(payeesData);
-      } catch (error) {
-        console.error("Failed to fetch onboarding data:", error);
-      }
-    };
-
-    fetchData();
+      // Fetch payees (rules are payees with category_id !== 0)
+      const payeesData = await fetchJSON<Payee[]>("/payee").catch(() => []);
+      setPayees(payeesData ?? []);
+    } catch (error) {
+      console.error("Failed to fetch onboarding data:", error);
+    }
   }, []);
 
-  const hasSyncConfig = syncConfig !== null && syncConfig.last_sync !== null;
-  const hasCategories = categories.length > 1; // More than just "Uncategorized" (ID 0)
-  const hasBudgets = categories.some((cat) => cat.budget && cat.budget > 0);
+  useEffect(() => {
+    fetchData();
 
-  // Account validation: Complete if we have accounts and they all have types assigned
-  // SimpleFIN auto-assigns account types during sync, so this should auto-complete for most users
-  const hasValidatedAccounts = accounts.length > 0 && accounts.every((acc) => acc.account_type !== null);
+    // Poll every 5 seconds to pick up sync completion
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const hasSyncConfig = syncConfig !== null && syncConfig.last_sync !== null;
+  // Categories step is complete once user has visited the categories page
+  const hasCategoriesVisited = localStorage.getItem(CATEGORIES_VISITED_KEY) === "true";
+  // Accounts step is complete once user has visited the accounts page
+  const hasAccountsVisited = localStorage.getItem(ACCOUNTS_VISITED_KEY) === "true";
 
   const hasRules = payees.some((payee) => payee.category_id !== 0);
 
@@ -80,14 +75,14 @@ export function useOnboardingProgress(): OnboardingProgress {
       title: "Validate Account Types",
       description: "Review and confirm account classifications",
       href: "/settings/accounts",
-      completed: hasValidatedAccounts,
+      completed: hasAccountsVisited,
     },
     {
       id: "categories",
       title: "Set Up Categories & Budgets",
       description: "Organize spending and set budget limits",
       href: "/settings/categories",
-      completed: hasCategories && hasBudgets,
+      completed: hasCategoriesVisited,
     },
     {
       id: "rules",
@@ -101,7 +96,7 @@ export function useOnboardingProgress(): OnboardingProgress {
       title: "View Your Overview",
       description: "See your financial snapshot",
       href: "/",
-      completed: hasSyncConfig && hasCategories, // Complete when basic setup is done
+      completed: hasSyncConfig && hasCategoriesVisited, // Complete when basic setup is done
     },
   ];
 
@@ -127,5 +122,6 @@ export function useOnboardingProgress(): OnboardingProgress {
     isDismissed,
     dismiss,
     restore,
+    refetch: fetchData,
   };
 }

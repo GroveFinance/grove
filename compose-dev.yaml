@@ -12,15 +12,19 @@
 
 networks:
   default:
+  grove-shared:
+    name: grove-shared
+    driver: bridge
 
 services:
   db:
     image: postgres:17
     restart: always
-    container_name: grove_db
-    hostname: grove_db
+    container_name: ${COMPOSE_PROJECT_NAME:-grove-dev}_db
+    hostname: ${COMPOSE_PROJECT_NAME:-grove-dev}_db
     networks:
       - default
+      - grove-shared
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-grove}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-grove}
@@ -29,6 +33,7 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-grove} -d ${POSTGRES_DB:-grove}"]
       interval: 5s
@@ -39,9 +44,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: grove
+    container_name: ${COMPOSE_PROJECT_NAME:-grove-dev}_app
     restart: always
-    hostname: grove
+    hostname: ${COMPOSE_PROJECT_NAME:-grove-dev}_app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips='*'
     networks:
       - default
@@ -62,7 +67,7 @@ services:
 
   frontend:
     image: node:22
-    container_name: grove_frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-grove-dev}_frontend
     working_dir: /frontend
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     volumes:

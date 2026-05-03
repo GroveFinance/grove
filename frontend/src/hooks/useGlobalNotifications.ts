@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { getDuplicateAccounts, getLatestSyncRun } from "@/services/api"
 import { toast } from "sonner"
@@ -16,11 +16,12 @@ export function useGlobalNotifications() {
   const duplicateToastId = useRef<string | number | undefined>(undefined)
   const syncErrorToastId = useRef<string | number | undefined>(undefined)
 
-  const { data: duplicates = [] } = useQuery({
+  const { data: duplicatesData } = useQuery({
     queryKey: ["account-duplicates"],
     queryFn: getDuplicateAccounts,
     refetchInterval: 5 * 60 * 1000, // Check every 5 minutes
   })
+  const duplicates = useMemo(() => duplicatesData ?? [], [duplicatesData])
 
   const { data: latestSyncRun } = useQuery({
     queryKey: ["latest-sync-run"],
@@ -44,6 +45,7 @@ export function useGlobalNotifications() {
         {
           description: "Click to view and merge duplicate accounts",
           duration: Infinity, // Never auto-dismiss
+          closeButton: true,
           action: {
             label: "View",
             onClick: () => navigate("/settings/accounts"),
@@ -78,6 +80,7 @@ export function useGlobalNotifications() {
       syncErrorToastId.current = toast.error("SimpleFIN sync failed", {
         description: latestSyncRun.error_message.slice(0, 100) + (latestSyncRun.error_message.length > 100 ? "..." : ""),
         duration: Infinity, // Never auto-dismiss
+        closeButton: true,
         action: {
           label: "View Details",
           onClick: () => navigate("/settings/sync"),

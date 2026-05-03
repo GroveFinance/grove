@@ -8,7 +8,7 @@ from app.schemas import OrgCreate, OrgOut, OrgUpdate
 router = APIRouter()
 
 
-@router.get("/", response_model=list[OrgOut], operation_id="list_orgs")
+@router.get("", response_model=list[OrgOut], operation_id="list_orgs")
 def list_orgs(db: Session = Depends(get_db)):
     return crud.get_orgs(db)
 
@@ -21,7 +21,7 @@ def get_org(id: str, db: Session = Depends(get_db)):
     return org
 
 
-@router.post("/", response_model=OrgOut, operation_id="create_org")
+@router.post("", response_model=OrgOut, operation_id="create_org")
 def create_org(data: OrgCreate, db: Session = Depends(get_db)):
     return crud.create_org(db, data)
 

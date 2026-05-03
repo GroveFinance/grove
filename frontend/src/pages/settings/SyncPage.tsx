@@ -2,13 +2,13 @@ import { MainLayout } from "@/layouts/MainLayout";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useSyncSettings } from "@/hooks/useSyncSettings";
+import { useGlobalSyncStatus } from "@/hooks/useGlobalSyncStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { getLatestSyncRun, triggerSyncFromDate } from "@/services/api";
+import { triggerSyncFromDate } from "@/services/api";
 import { downloadRawResponse } from "@/services/api/sync";
-import type { SyncRun } from "@/types";
 import { Loader2, ChevronDown } from "lucide-react";
 import { AdvancedSyncDialog } from "@/components/ui/AdvancedSyncDialog";
 import {
@@ -19,41 +19,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function SimplefinSettingsPage() {
-  const { data, loading, error, saveToken, syncNow, refetch } = useSyncSettings();
+  const { data, loading, error, saveToken, refetch } = useSyncSettings();
+  const { latestRun, isSyncing, triggerSyncNow, refetch: refetchSyncStatus } = useGlobalSyncStatus();
   const [token, setToken] = useState("");
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [latestRun, setLatestRun] = useState<SyncRun | null>(null);
   const [showAdvancedDialog, setShowAdvancedDialog] = useState(false);
   const [shouldCaptureRaw, setShouldCaptureRaw] = useState(false);
 
-  // Fetch latest sync run on mount and when data changes
+  // Refresh sync settings when sync completes successfully
   useEffect(() => {
-    if (data?.id) {
-      fetchLatestRun();
+    if (latestRun && latestRun.status === "completed" && !isSyncing) {
+      // Refresh sync settings to update last_sync timestamp
+      refetch();
     }
-  }, [data?.id]);
-
-  // Poll for sync status when syncing
-  useEffect(() => {
-    if (!isSyncing || !latestRun) return;
-
-    const interval = setInterval(() => {
-      fetchLatestRun();
-    }, 2000); // Poll every 2 seconds
-
-    return () => clearInterval(interval);
-  }, [isSyncing, latestRun?.id]);
-
-  // Stop syncing when run completes
-  useEffect(() => {
-    if (latestRun && latestRun.status !== "running") {
-      setIsSyncing(false);
-      // Refresh sync settings to update last_sync timestamp at top
-      if (latestRun.status === "completed") {
-        refetch();
-      }
-    }
-  }, [latestRun?.status, refetch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestRun?.status, isSyncing, refetch]);
 
   // Auto-download raw response when sync completes
   useEffect(() => {
@@ -65,48 +44,33 @@ export default function SimplefinSettingsPage() {
       handleDownloadRaw(latestRun.id);
       setShouldCaptureRaw(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestRun?.status, shouldCaptureRaw]);
-
-  const fetchLatestRun = async () => {
-    try {
-      const run = await getLatestSyncRun("simplefin");
-      setLatestRun(run);
-    } catch (err) {
-      console.error("Failed to fetch latest sync run:", err);
-    }
-  };
 
   const handleSave = async () => {
     if (!token.trim()) return;
     try {
       await saveToken(token.trim());
       setToken("");
+      // The hook triggers a sync after saving, so start polling for the new run
+      setTimeout(() => refetchSyncStatus(), 1000);
     } catch {
       // error handled in hook
     }
   };
 
   const handleSyncNow = async () => {
-    setIsSyncing(true);
-    try {
-      await syncNow(); // trigger actual sync
-      // Start polling for the new run
-      setTimeout(fetchLatestRun, 1000);
-    } finally {
-      // Don't set to false here - let the polling handle it
-    }
+    triggerSyncNow();
   };
 
   const handleAdvancedSync = async (daysBack: number, captureRaw: boolean) => {
-    setIsSyncing(true);
     setShouldCaptureRaw(captureRaw);
     try {
       await triggerSyncFromDate("simplefin", daysBack, captureRaw);
       // Start polling for the new run
-      setTimeout(fetchLatestRun, 1000);
+      setTimeout(() => refetchSyncStatus(), 1000);
     } catch (err) {
       console.error("Failed to trigger advanced sync:", err);
-      setIsSyncing(false);
       setShouldCaptureRaw(false);
     }
   };
@@ -168,16 +132,27 @@ export default function SimplefinSettingsPage() {
                 </Badge>
               )}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <div className="flex">
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={isSyncing}
+                    onClick={handleSyncNow}
+                    className="rounded-r-none border-r-0"
                   >
                     {isSyncing ? "Syncing…" : "Sync Now"}
-                    <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
-                </DropdownMenuTrigger>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isSyncing}
+                      className="rounded-l-none px-2"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </div>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleSyncNow} disabled={isSyncing}>
                     Sync Now
@@ -187,6 +162,21 @@ export default function SimplefinSettingsPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {data.errors && data.errors.trim() !== "" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                >
+                  <a
+                    href="https://beta-bridge.simplefin.org/my-account"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Fix Accounts
+                  </a>
+                </Button>
+              )}
             </div>
           )}
         </header>

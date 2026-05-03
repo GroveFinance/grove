@@ -22,6 +22,6 @@ export async function getHoldings(
   if (params.skip !== undefined) query.append("skip", params.skip.toString());
   if (params.limit !== undefined) query.append("limit", params.limit.toString());
 
-  const url = `/holding/?${query.toString()}`;
+  const url = query.toString() ? `/holding?${query.toString()}` : "/holding";
   return fetchJSON<Holding[]>(url);
 }

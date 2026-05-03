@@ -7,8 +7,8 @@ import type { SyncItem, SyncRun } from "@/types";
 export async function getSync(name = "simplefin") {
   try {
     return await fetchJSON<SyncItem>(`/sync/${encodeURIComponent(name)}`);
-  } catch (err: any) {
-    if (err.status === 404) {
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) {
       // Not found → return null so UI can redirect
       return null;
     }
@@ -18,7 +18,7 @@ export async function getSync(name = "simplefin") {
 }
 
 export function createSync(name: string, setupToken: string) {
-  return fetchJSON<SyncItem>("/sync/", {
+  return fetchJSON<SyncItem>("/sync", {
     method: "POST",
     body: JSON.stringify({ name, provider_name: name, config: { setup_token: setupToken } }),
   });
@@ -31,7 +31,7 @@ export function updateSync(name: string, setupToken: string) {
   });
 }
 
-export const triggerSync = () => fetchJSON<void>("/sync/trigger/", { method: "POST" });
+export const triggerSync = () => fetchJSON<void>("/sync/trigger", { method: "POST" });
 
 export async function triggerSyncFromDate(name = "simplefin", daysBack = 30, captureRaw = false) {
   return fetchJSON<{
@@ -48,8 +48,8 @@ export async function triggerSyncFromDate(name = "simplefin", daysBack = 30, cap
 export async function getLatestSyncRun(name = "simplefin") {
   try {
     return await fetchJSON<SyncRun>(`/sync/${encodeURIComponent(name)}/runs/latest`);
-  } catch (err: any) {
-    if (err.status === 404) {
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) {
       return null;
     }
     throw err;

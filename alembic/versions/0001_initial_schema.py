@@ -13,6 +13,7 @@ For new databases, this creates all tables from scratch.
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -35,17 +36,31 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
+    # Create accounttype_enum type
+    op.execute("CREATE TYPE accounttype_enum AS ENUM ('bank', 'credit_card', 'investment', 'loan')")
+
     # Create accounts table
     op.create_table(
         "accounts",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("alt_name", sa.String(), nullable=True),
-        sa.Column("currency", sa.String(), nullable=False),
+        sa.Column("currency", sa.String(), nullable=False, server_default="USD"),
         sa.Column("org_id", sa.String(), nullable=True),
-        sa.Column("is_hidden", sa.Boolean(), nullable=True),
-        sa.Column("account_type", sa.String(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("is_hidden", sa.Boolean(), nullable=True, server_default="false"),
+        sa.Column(
+            "account_type",
+            postgresql.ENUM(
+                "bank",
+                "credit_card",
+                "investment",
+                "loan",
+                name="accounttype_enum",
+                create_type=False,
+            ),
+            nullable=True,
+        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["org_id"], ["orgs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -55,7 +70,6 @@ def upgrade() -> None:
         "groups",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
-        sa.Column("sort_order", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name"),
     )
@@ -66,7 +80,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("group_id", sa.Integer(), nullable=True),
-        sa.Column("budget", sa.Numeric(precision=12, scale=2), nullable=True),
+        sa.Column("budget", sa.Integer(), nullable=False, server_default="0"),
         sa.ForeignKeyConstraint(["group_id"], ["groups.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name"),
@@ -77,11 +91,11 @@ def upgrade() -> None:
         "payees",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
-        sa.Column("category_id", sa.Integer(), nullable=False, server_default="0"),
-        sa.ForeignKeyConstraint(["category_id"], ["categories.id"], ondelete="SET NULL"),
+        sa.Column("category_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(["category_id"], ["categories.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name"),
     )
+    op.create_index("idx_payees_name", "payees", ["name"])
 
     # Create transactions table
     op.create_table(
@@ -90,19 +104,19 @@ def upgrade() -> None:
         sa.Column("account_id", sa.String(), nullable=True),
         sa.Column("payee_id", sa.Integer(), nullable=True),
         sa.Column("amount", sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column("posted", sa.DateTime(), nullable=False),
-        sa.Column("transacted_at", sa.DateTime(), nullable=False),
+        sa.Column("posted", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("transacted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("is_pending", sa.Boolean(), nullable=True, server_default="false"),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("memo", sa.Text(), nullable=True),
-        sa.Column("content_hash", sa.String(), nullable=True),
+        sa.Column("content_hash", sa.String(64), nullable=True),
         sa.ForeignKeyConstraint(["account_id"], ["accounts.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["payee_id"], ["payees.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_transactions_account_id", "transactions", ["account_id"])
     op.create_index("idx_transactions_posted", "transactions", ["posted"])
-    op.create_index("idx_transactions_transacted_at", "transactions", ["transacted_at"])
-    op.create_index("idx_transactions_content_hash", "transactions", ["content_hash"])
+    op.create_index("ix_transaction_hash", "transactions", ["account_id", "content_hash"])
 
     # Create transaction_splits table
     op.create_table(
@@ -111,54 +125,59 @@ def upgrade() -> None:
         sa.Column("transaction_id", sa.String(), nullable=False),
         sa.Column("category_id", sa.Integer(), nullable=False),
         sa.Column("amount", sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.ForeignKeyConstraint(["category_id"], ["categories.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["category_id"], ["categories.id"]),
         sa.ForeignKeyConstraint(["transaction_id"], ["transactions.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("idx_splits_transaction_id", "transaction_splits", ["transaction_id"])
-    op.create_index("idx_splits_category_id", "transaction_splits", ["category_id"])
+    op.create_index("ix_split_transaction", "transaction_splits", ["transaction_id"])
+    op.create_index("ix_split_category", "transaction_splits", ["category_id"])
 
     # Create holdings table
     op.create_table(
         "holdings",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("account_id", sa.String(), nullable=True),
-        sa.Column("security", sa.String(), nullable=True),
-        sa.Column("description", sa.String(), nullable=True),
-        sa.Column("ticker", sa.String(), nullable=True),
-        sa.Column("quantity", sa.Numeric(precision=18, scale=6), nullable=True),
-        sa.Column("value", sa.Numeric(precision=12, scale=2), nullable=True),
-        sa.Column("value_date", sa.DateTime(), nullable=True),
+        sa.Column("created", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("currency", sa.String(), nullable=False, server_default="USD"),
+        sa.Column("cost_basis", sa.Numeric(precision=18, scale=6), nullable=True),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("market_value", sa.Numeric(precision=18, scale=6), nullable=True),
+        sa.Column("purchase_price", sa.Numeric(precision=18, scale=6), nullable=True),
+        sa.Column("shares", sa.Numeric(precision=18, scale=6), nullable=True),
+        sa.Column("symbol", sa.String(), nullable=True),
         sa.ForeignKeyConstraint(["account_id"], ["accounts.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index("idx_holdings_symbol", "holdings", ["symbol"])
 
     # Create account_balance table
     op.create_table(
         "account_balance",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("account_id", sa.String(), nullable=False),
+        sa.Column("account_id", sa.String(), nullable=True),
         sa.Column("balance", sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column("balance_date", sa.DateTime(), nullable=False),
+        sa.Column("available_balance", sa.Numeric(precision=12, scale=2), nullable=True),
+        sa.Column("balance_date", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["account_id"], ["accounts.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        "idx_account_balance_account_date",
+        "ix_balance_account_date",
         "account_balance",
         ["account_id", "balance_date"],
-        unique=True,
     )
 
-    # Create sync_config table
+    # Create sync_configs table
     op.create_table(
-        "sync_config",
+        "sync_configs",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("provider_name", sa.String(), nullable=False),
-        sa.Column("config", sa.JSON(), nullable=True),
-        sa.Column("enabled", sa.Boolean(), nullable=True),
-        sa.Column("schedule_cron", sa.String(), nullable=True),
+        sa.Column("config", sa.JSON(), nullable=False),
+        sa.Column("active", sa.Boolean(), nullable=True, default=True),
+        sa.Column("schedule", sa.String(), nullable=True),
+        sa.Column("last_sync", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("errors", sa.Text(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name"),
     )
@@ -167,41 +186,53 @@ def upgrade() -> None:
     op.create_table(
         "sync_runs",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("sync_name", sa.String(), nullable=False),
-        sa.Column("status", sa.String(), nullable=False),
-        sa.Column("started_at", sa.DateTime(), nullable=False),
-        sa.Column("completed_at", sa.DateTime(), nullable=True),
+        sa.Column("sync_config_id", sa.Integer(), nullable=True),
+        sa.Column("status", sa.String(), nullable=False, server_default="running"),
+        sa.Column("started_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("accounts_processed", sa.Integer(), nullable=True, server_default="0"),
+        sa.Column("transactions_found", sa.Integer(), nullable=True, server_default="0"),
+        sa.Column("holdings_found", sa.Integer(), nullable=True, server_default="0"),
         sa.Column("error_message", sa.Text(), nullable=True),
-        sa.Column("accounts_synced", sa.Integer(), nullable=True),
-        sa.Column("transactions_added", sa.Integer(), nullable=True),
-        sa.Column("transactions_updated", sa.Integer(), nullable=True),
-        sa.Column("raw_response", sa.Text(), nullable=True),
-        sa.ForeignKeyConstraint(["sync_name"], ["sync_config.name"], ondelete="CASCADE"),
+        sa.Column("details", sa.JSON(), nullable=True),
+        sa.ForeignKeyConstraint(["sync_config_id"], ["sync_configs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("idx_sync_runs_sync_name", "sync_runs", ["sync_name"])
+    op.create_index("idx_sync_runs_sync_config_id", "sync_runs", ["sync_config_id"])
     op.create_index("idx_sync_runs_started_at", "sync_runs", ["started_at"])
+
+    # Create meta table (for tracking seed status, etc.)
+    op.create_table(
+        "meta",
+        sa.Column("key", sa.String(), nullable=False),
+        sa.Column("value", sa.String(), nullable=True),
+        sa.PrimaryKeyConstraint("key"),
+    )
 
 
 def downgrade() -> None:
     # Drop all tables in reverse order
+    op.drop_table("meta")
     op.drop_index("idx_sync_runs_started_at", table_name="sync_runs")
-    op.drop_index("idx_sync_runs_sync_name", table_name="sync_runs")
+    op.drop_index("idx_sync_runs_sync_config_id", table_name="sync_runs")
     op.drop_table("sync_runs")
-    op.drop_table("sync_config")
-    op.drop_index("idx_account_balance_account_date", table_name="account_balance")
+    op.drop_table("sync_configs")
+    op.drop_index("ix_balance_account_date", table_name="account_balance")
     op.drop_table("account_balance")
+    op.drop_index("idx_holdings_symbol", table_name="holdings")
     op.drop_table("holdings")
-    op.drop_index("idx_splits_category_id", table_name="transaction_splits")
-    op.drop_index("idx_splits_transaction_id", table_name="transaction_splits")
+    op.drop_index("ix_split_category", table_name="transaction_splits")
+    op.drop_index("ix_split_transaction", table_name="transaction_splits")
     op.drop_table("transaction_splits")
-    op.drop_index("idx_transactions_content_hash", table_name="transactions")
-    op.drop_index("idx_transactions_transacted_at", table_name="transactions")
+    op.drop_index("ix_transaction_hash", table_name="transactions")
     op.drop_index("idx_transactions_posted", table_name="transactions")
     op.drop_index("idx_transactions_account_id", table_name="transactions")
     op.drop_table("transactions")
+    op.drop_index("idx_payees_name", table_name="payees")
     op.drop_table("payees")
     op.drop_table("categories")
     op.drop_table("groups")
     op.drop_table("accounts")
+    # Drop the enum type
+    sa.Enum(name="accounttype_enum").drop(op.get_bind(), checkfirst=True)
     op.drop_table("orgs")
