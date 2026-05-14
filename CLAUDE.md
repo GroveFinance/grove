@@ -74,8 +74,8 @@ The project uses pre-commit hooks to enforce code quality standards before commi
 # Install pre-commit (already in requirements.txt)
 pip install pre-commit
 
-# Install the git hooks
-pre-commit install
+# Install the git hooks (use -f to force if you had old hooks)
+pre-commit install -f
 ```
 
 **Usage**:
@@ -107,6 +107,10 @@ git commit --no-verify
 - General: trailing whitespace, end-of-file fixer, YAML validation, merge conflict detection
 
 **Configuration**: See [.pre-commit-config.yaml](.pre-commit-config.yaml) and [mypy.ini](mypy.ini)
+
+**Troubleshooting**:
+- If commits fail but `pre-commit run` passes, reinstall: `pre-commit uninstall && pre-commit install -f`
+- This removes any old conflicting hooks
 
 ## Architecture
 
