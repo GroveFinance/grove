@@ -13,13 +13,13 @@
 repos:
   # Backend Python checks
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.14.11  # Match requirements.txt version
     hooks:
-      # Run the linter (auto-fix everything possible)
-      - id: ruff
+      # Run the checker with auto-fix
+      - id: ruff-check
         args: [--fix, --unsafe-fixes]
         files: ^app/
-      # Run the formatter (auto-formats in place)
+      # Run the formatter (formats in place)
       - id: ruff-format
         files: ^app/
 
