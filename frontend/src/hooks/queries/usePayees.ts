@@ -12,4 +12,3 @@ export function usePayees(options?: UsePayeesOptions) {
     queryFn: () => getPayees({ excludeInvestment: options?.excludeInvestment }),
   });
 }
-

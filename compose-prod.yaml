@@ -19,4 +19,3 @@ services:
       - ENV=production
       - LOG_LEVEL=${LOG_LEVEL:-info}
     restart: unless-stopped
-

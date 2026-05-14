@@ -65,6 +65,49 @@ npm run lint
 
 Frontend path aliases are configured in `vite.config.ts` - use `@/` for imports from `src/`.
 
+### Pre-commit Hooks
+
+The project uses pre-commit hooks to enforce code quality standards before commits. These hooks run the same checks as CI to catch issues early and **automatically fix most issues**.
+
+**Setup** (one-time):
+```bash
+# Install pre-commit (already in requirements.txt)
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+```
+
+**Usage**:
+```bash
+# Hooks run automatically on git commit
+git commit -m "Your message"
+
+# If auto-fixes are applied, re-add and commit again:
+git add -u
+git commit -m "Your message"
+
+# Run manually on all files
+pre-commit run --all-files
+
+# Skip hooks (not recommended)
+git commit --no-verify
+```
+
+**Auto-Fix Behavior**:
+- ✅ **Ruff**: Auto-fixes linting issues (import sorting, syntax modernization, etc.)
+- ✅ **Ruff-format**: Auto-formats Python code
+- ✅ **ESLint**: Auto-fixes JavaScript/TypeScript linting issues
+- ✅ **Whitespace**: Auto-fixes trailing spaces, line endings, missing newlines
+- ❌ **Type errors**: MyPy and TypeScript errors require manual fixes
+
+**Checks performed**:
+- Backend: ruff (linter + formatter), mypy (type checker)
+- Frontend: ESLint, TypeScript type check
+- General: trailing whitespace, end-of-file fixer, YAML validation, merge conflict detection
+
+**Configuration**: See [.pre-commit-config.yaml](.pre-commit-config.yaml) and [mypy.ini](mypy.ini)
+
 ## Architecture
 
 ### Backend Structure

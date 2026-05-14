@@ -17,7 +17,7 @@ from app.utils.payee_normalizer import normalize_check_payee
 def _convert_epoch(value):
     if value is None:
         return None
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return datetime.fromtimestamp(value, tz=UTC)
     if isinstance(value, str) and value.isdigit():
         return datetime.fromtimestamp(int(value), tz=UTC)

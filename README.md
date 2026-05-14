@@ -45,10 +45,10 @@ Im just a squirrel trying to keep track of my nuts. I was a mildly happy user of
 ### Installation
 
 1. **Get the Docker Compose File**
-   
+
    ```bash
    curl -o docker-compose.yaml https://raw.githubusercontent.com/grovefinance/grove/main/docker-compose.yaml
-   ``` 
+   ```
 
 2. **Configure Environment Variables**
 

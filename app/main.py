@@ -1,11 +1,11 @@
 import os
 
-from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from alembic import command
+from alembic.config import Config
 from app.api import router as api_router
 from app.logger import logger
 from app.seed import seed_initial_categories

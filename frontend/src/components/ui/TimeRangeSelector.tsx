@@ -212,10 +212,10 @@ export default function TimeRangeSelector({ showCustom = false, showMode = false
             <div className="p-4 flex flex-col items-start gap-2">
               <h2 className="text-sm font-semibold mb-2 text-gray-700">Quick Select</h2>
               {filteredOptions.map((option) => (
-                <Button 
+                <Button
                   key={option.value}
-                  variant="ghost" 
-                  className="rounded-lg w-full justify-start" 
+                  variant="ghost"
+                  className="rounded-lg w-full justify-start"
                   onClick={() => applyPreset(option.label, option.months)}
                 >
                   {option.label}

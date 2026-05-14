@@ -216,7 +216,7 @@ export default function UtilityComparison({
               dataKey="this_period"
               fill="var(--primary)"
               radius={[0, 4, 4, 0]}
-              shape={(props: Record<string, unknown>) => {
+              shape={(props: unknown) => {
                 const { x, y, width, height, payload, background } = props as {
                   x: number;
                   y: number;
@@ -292,13 +292,17 @@ export default function UtilityComparison({
       }
 
       // Group by month, with each category as a separate bar
-      const monthlyData: Record<string, Record<string, string | number>> = {}
+      interface MonthlyDataItem {
+        month: string;
+        [category: string]: string | number;
+      }
+      const monthlyData: Record<string, MonthlyDataItem> = {}
       currentData.forEach((item) => {
         if (!item.month) return
         if (!monthlyData[item.month]) {
           monthlyData[item.month] = { month: item.month }
         }
-        monthlyData[item.month][item.category] = item.amount
+        monthlyData[item.month][item.category] = item.amount ?? 0
       })
 
       const chartData = Object.values(monthlyData).sort((a, b) =>

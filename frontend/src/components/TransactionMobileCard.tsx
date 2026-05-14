@@ -103,7 +103,7 @@ export function TransactionMobileCard({
               <div className="text-xs font-medium text-muted-foreground">
                 Splits:
               </div>
-              {txn.splits.map((s: { id: number; category?: { name: string }; amount: number }) => (
+              {txn.splits.map((s) => (
                 <div
                   key={s.id}
                   className="flex justify-between text-sm pl-2 border-l-2"

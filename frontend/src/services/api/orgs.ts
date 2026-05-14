@@ -7,4 +7,3 @@ import type { Org, GetOrgParams  } from "@/types";
 export async function getOrg(params: GetOrgParams = {}) : Promise<Org> {
   return fetchJSON<Org>(params.id ? `/org/${params.id}` : "/org");
 }
-

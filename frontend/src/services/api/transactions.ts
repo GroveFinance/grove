@@ -80,5 +80,3 @@ export async function getTransactionsSummary(
   const url = `/transaction/summary/stats?${query.toString()}`
   return fetchJSON<TransactionSummary>(url)
 }
-
-

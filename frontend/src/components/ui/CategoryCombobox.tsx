@@ -109,7 +109,7 @@ export default function CategoryCombobox(props: Props) {
       props.onExcludeChange([...excludedIds, id]);
     }
   };
-  
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

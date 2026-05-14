@@ -12,3 +12,4 @@ python-multipart
 dateutils
 ruff==0.14.11
 mypy==1.19.1
+pre-commit

@@ -148,7 +148,7 @@
     /* Main Logo Colors */
     --logo-green-oklch: oklch(72.69% 0.152 145.2);   /* #21b16a */
     --logo-bluegreen-oklch: oklch(69.4% 0.127 196.5); /* #1e96b3 */
-    
+
     --logo-white-oklch: oklch(100% 0 0);              /* #ffffff */
 
     /* Light Mode Hover Adjustments */
@@ -159,7 +159,7 @@
     --logo-green-hover-dark-oklch: oklch(78% 0.152 145.2);    /* #2cd37c */
     --logo-bluegreen-hover-dark-oklch: oklch(75% 0.127 196.5); /* #29b9d3 */
 
-    
+
   }
 
   /* Dark mode - true dark / near-black backgrounds */
@@ -498,5 +498,3 @@
 
 
 }
-
-

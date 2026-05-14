@@ -1,0 +1,70 @@
+# Pre-commit hooks that match CI checks
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+#
+# AUTO-FIX BEHAVIOR:
+# - Ruff: Auto-fixes all linting issues (including unsafe fixes like isinstance modernization)
+# - Ruff-format: Auto-formats Python code
+# - ESLint: Auto-fixes JavaScript/TypeScript linting issues
+# - Other hooks: Auto-fix whitespace, line endings, etc.
+#
+# Only fails if there are issues that cannot be auto-fixed (like type errors)
+
+repos:
+  # Backend Python checks
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the linter (auto-fix everything possible)
+      - id: ruff
+        args: [--fix, --unsafe-fixes]
+        files: ^app/
+      # Run the formatter (auto-formats in place)
+      - id: ruff-format
+        files: ^app/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        args: [--install-types, --non-interactive, --ignore-missing-imports]
+        files: ^app/
+        additional_dependencies:
+          - types-requests
+          - types-PyMySQL
+          - types-python-dateutil
+          - types-ujson
+          - alembic
+          - fastapi
+          - pydantic
+          - sqlalchemy
+
+  # Frontend checks
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: bash -c 'cd frontend && npm run lint -- --fix'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: tsc
+        name: TypeScript type check
+        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  # General checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom YAML tags in docker-compose
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: mixed-line-ending

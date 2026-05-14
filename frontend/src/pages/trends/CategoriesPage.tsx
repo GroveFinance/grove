@@ -143,16 +143,21 @@ export default function CategoriesPage() {
 
     // Build monthly data
     return allMonths.map(month => {
-      const monthData: Record<string, string | number> = {
+      interface MonthData {
+        month: string;
+        monthLabel: string;
+        [groupName: string]: string | number;
+      }
+      const monthData: MonthData = {
         month,
         monthLabel: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
       };
 
       // Initialize all groups to 0
       top5Groups.forEach(groupName => {
-        monthData[groupName] = 0;
+        (monthData[groupName] as number) = 0;
       });
-      monthData['Other'] = 0;
+      (monthData['Other'] as number) = 0;
 
       // Sum up spending for each group in this month
       data.data.forEach(item => {
@@ -161,9 +166,9 @@ export default function CategoriesPage() {
           const amount = Math.abs(item.total);
 
           if (top5Groups.includes(groupName)) {
-            monthData[groupName] += amount;
+            (monthData[groupName] as number) += amount;
           } else {
-            monthData['Other'] += amount;
+            (monthData['Other'] as number) += amount;
           }
         }
       });
