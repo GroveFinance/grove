@@ -162,6 +162,8 @@ export interface Transaction {
   payee_id: number;
   description: string;
   memo: string;
+  mcc: string | null;              // NEW: Merchant Category Code
+  mcc_description: string | null;  // NEW: Human-readable MCC description
   category_id: number;
   payee: Payee;
   category: Category;

@@ -113,10 +113,12 @@ interface TransactionDetailsPopoverProps {
   transactionId: string;
   description: string;
   memo: string;
+  mcc: string | null;
+  mcc_description: string | null;
   onMemoUpdate: (transactionId: string, memo: string) => void;
 }
 
-function TransactionDetailsPopover({ transactionId, description, memo, onMemoUpdate }: TransactionDetailsPopoverProps) {
+function TransactionDetailsPopover({ transactionId, description, memo, mcc, mcc_description, onMemoUpdate }: TransactionDetailsPopoverProps) {
   const [open, setOpen] = useState(false);
   const [editedMemo, setEditedMemo] = useState(memo || "");
 
@@ -155,6 +157,18 @@ function TransactionDetailsPopover({ transactionId, description, memo, onMemoUpd
             <div className="text-xs font-medium text-muted-foreground mb-1">Description</div>
             <div className="text-sm">{description || "—"}</div>
           </div>
+
+          {mcc && (
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-1">
+                Merchant Category
+              </div>
+              <div className="text-sm">
+                {mcc_description ? `${mcc} - ${mcc_description}` : mcc}
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="text-xs font-medium text-muted-foreground mb-1">Notes</div>
             <Input
@@ -881,6 +895,8 @@ export default function Transactions() {
                                     transactionId={txn.id}
                                     description={txn.description}
                                     memo={txn.memo}
+                                    mcc={txn.mcc}
+                                    mcc_description={txn.mcc_description}
                                     onMemoUpdate={handleMemoUpdate}
                                   />
                                   <PayeeCategorySelector
