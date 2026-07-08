@@ -2,7 +2,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_serializer
+
+try:
+    import iso18245
+
+    HAS_ISO18245 = True
+except ImportError:
+    HAS_ISO18245 = False
 
 from .models import AccountType
 
@@ -326,6 +333,7 @@ class TransactionBase(BaseModel):
     is_pending: bool | None = False
     description: str | None = None
     memo: str | None = None
+    mcc: str | None = None
 
 
 class TransactionCreate(TransactionBase):
@@ -341,6 +349,7 @@ class TransactionUpdate(BaseModel):
     is_pending: bool | None = None
     description: str | None = None
     memo: str | None = None
+    mcc: str | None = None
     splits: list[TransactionSplitBase] | None = None
 
 
@@ -349,6 +358,25 @@ class TransactionOut(TransactionBase):
     payee: PayeeOut | None = None
     account: AccountOut | None = None
     splits: list[TransactionSplitOut] = []  # expose splits instead of flat category
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def mcc_description(self) -> str | None:
+        """Lookup human-readable MCC description from code.
+
+        Returns None if:
+        - MCC code is not present
+        - iso18245 library is not available
+        - MCC code is invalid/unknown
+        """
+        if not self.mcc or not HAS_ISO18245:
+            return None
+        try:
+            mcc_obj = iso18245.get_mcc(self.mcc)
+            return mcc_obj.iso_description
+        except (KeyError, AttributeError, ValueError, Exception):
+            # Unknown/invalid MCC code or library error
+            return None
 
     model_config = ConfigDict(from_attributes=True)
 
