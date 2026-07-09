@@ -214,7 +214,7 @@ def run(
             return
 
     cfg = config.config
-    stats = {"accounts": {}, "total_transactions": 0, "total_holdings": 0}
+    stats = {"accounts": {}, "total_transactions": 0, "total_updates": 0, "total_holdings": 0}
 
     try:
         if from_date:
@@ -347,14 +347,13 @@ def handle_new_account(cfg: dict, db: Session, account_id: str, already_synced_f
         if account_data:
             txns = account_data.get("transactions", [])
             new_count, updated_count = process_transactions(db, txns, account_id)
-            txn_count = new_count + updated_count
 
-            if txn_count == 0:
+            if new_count == 0:
                 empty_months += 1
             else:
                 empty_months = 0
                 logger.debug(
-                    f"Pulled {txn_count} transactions for {account_id} in {start.date()} to {end.date()}"
+                    f"Pulled {new_count} new transactions for {account_id} in {start.date()} to {end.date()}"
                 )
         else:
             # Account not in response for this range
@@ -465,6 +464,7 @@ def process_sync_range(
             logger.info(f"Detected {len(new_account_ids)} new account(s): {new_account_ids}")
 
     total_txns = 0
+    total_updates = 0
     for account_data in accounts:
         org_data = account_data.get("org")
         if not org_data:
@@ -482,13 +482,13 @@ def process_sync_range(
         process_account_balance(db, account_data)
 
         # Process transactions (current time range)
-        new_count, updated_count = process_transactions(
+        new_txns, updated_txns = process_transactions(
             db, account_data.get("transactions", []), account_id
         )
-        txn_count = new_count + updated_count
         holding_count = process_holdings(db, account_data.get("holdings", []), account_id)
 
-        total_txns += txn_count
+        total_txns += new_txns
+        total_updates += updated_txns
 
         # If this is a new account, check for duplicates and optionally pull more history
         if is_new_account:
@@ -500,16 +500,21 @@ def process_sync_range(
                 account = db.query(Account).get(account_id)
                 stats["accounts"][account_id] = {
                     "name": account.display_name if account else account_id,
-                    "transactions": 0,
+                    "transactions_new": 0,
+                    "transactions_updated": 0,
                     "holdings": 0,
                 }
-            stats["accounts"][account_id]["transactions"] += txn_count
+            stats["accounts"][account_id]["transactions_new"] += new_txns
+            stats["accounts"][account_id]["transactions_updated"] += updated_txns
             stats["accounts"][account_id]["holdings"] += holding_count
-            stats["total_transactions"] += txn_count
+            stats["total_transactions"] += new_txns
+            stats["total_updates"] += updated_txns
             stats["total_holdings"] += holding_count
 
-    if total_txns > 0:
-        logger.info(f"Processed {total_txns} transactions between {start.date()} and {end.date()}")
+    if total_txns > 0 or total_updates > 0:
+        logger.info(
+            f"Processed {total_txns} new, {total_updates} updated transactions between {start.date()} and {end.date()}"
+        )
 
     # Classify any accounts that still don't have a type (uses transaction patterns)
     classify_accounts(db)
