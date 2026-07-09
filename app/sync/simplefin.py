@@ -346,7 +346,8 @@ def handle_new_account(cfg: dict, db: Session, account_id: str, already_synced_f
 
         if account_data:
             txns = account_data.get("transactions", [])
-            txn_count = process_transactions(db, txns, account_id)
+            new_count, updated_count = process_transactions(db, txns, account_id)
+            txn_count = new_count + updated_count
 
             if txn_count == 0:
                 empty_months += 1
@@ -481,7 +482,10 @@ def process_sync_range(
         process_account_balance(db, account_data)
 
         # Process transactions (current time range)
-        txn_count = process_transactions(db, account_data.get("transactions", []), account_id)
+        new_count, updated_count = process_transactions(
+            db, account_data.get("transactions", []), account_id
+        )
+        txn_count = new_count + updated_count
         holding_count = process_holdings(db, account_data.get("holdings", []), account_id)
 
         total_txns += txn_count
@@ -627,7 +631,7 @@ def process_accounts(db: Session, accounts: list[dict], org_id: str):
             account_crud.create_account(db, data)
 
 
-def process_transactions(db: Session, transactions: list[dict], account_id: str) -> int:
+def process_transactions(db: Session, transactions: list[dict], account_id: str) -> tuple[int, int]:
     """Process transactions with hash-based deduplication.
 
     This prevents duplicate transactions in two scenarios:
@@ -643,12 +647,38 @@ def process_transactions(db: Session, transactions: list[dict], account_id: str)
     account_type = account.account_type if account else None
 
     cnt = 0
+    updates_count = 0  # NEW: Track updated transactions
     for txn in transactions:
         txn["account_id"] = account_id
         txn_id = txn["id"]
 
         # Fast path: Check if transaction ID already exists
-        if db.get(Transaction, txn_id):
+        existing_txn = db.get(Transaction, txn_id)
+        if existing_txn:
+            # Update safe fields that won't break user edits or splits
+            updated_fields = []
+
+            # Update mcc if incoming has it and it's different
+            if txn.get("mcc") and txn.get("mcc") != existing_txn.mcc:
+                updated_fields.append(f"mcc={existing_txn.mcc}→{txn['mcc']}")
+                existing_txn.mcc = txn["mcc"]
+
+            # Update description if different
+            if txn.get("description") and txn.get("description") != existing_txn.description:
+                updated_fields.append("description")
+                existing_txn.description = txn["description"]
+
+            # Update is_pending if different
+            incoming_pending = txn.get("is_pending", False)
+            if incoming_pending != existing_txn.is_pending:
+                updated_fields.append(f"is_pending={existing_txn.is_pending}→{incoming_pending}")
+                existing_txn.is_pending = incoming_pending
+
+            if updated_fields:
+                db.commit()
+                logger.debug(f"Updated txn {txn_id}: {', '.join(updated_fields)}")
+                updates_count += 1
+
             continue
 
         # Compute content hash for this transaction
@@ -700,7 +730,10 @@ def process_transactions(db: Session, transactions: list[dict], account_id: str)
         )
         cnt += 1
 
-    return cnt
+    if cnt > 0 or updates_count > 0:
+        logger.info(f"Processed {cnt} new, updated {updates_count} existing transactions")
+
+    return cnt, updates_count
 
 
 def process_holdings(db: Session, holdings: list[dict], account_id: str) -> int:
