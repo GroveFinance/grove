@@ -4,7 +4,7 @@ import { SidebarTrigger } from "../components/ui/sidebar"
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSyncSettings } from "@/hooks/useSyncSettings";
 import { useGlobalSyncStatus } from "@/hooks/useGlobalSyncStatus";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,20 @@ export function MainLayout({ children, title }: MainLayoutProps) {
   const { data: syncData } = useSyncSettings("simplefin");
   const { isSyncing, triggerSyncNow } = useGlobalSyncStatus();
   const [syncAge, setSyncAge] = useState<string>("");
+  const hasAutoSynced = useRef(false);
+
+  // Auto-trigger sync if last sync is >24h old (once per session)
+  useEffect(() => {
+    if (hasAutoSynced.current || isSyncing || !syncData?.last_sync) return;
+
+    const lastSync = new Date(syncData.last_sync);
+    const hoursSinceSync = (Date.now() - lastSync.getTime()) / (1000 * 60 * 60);
+
+    if (hoursSinceSync > 24) {
+      hasAutoSynced.current = true;
+      triggerSyncNow();
+    }
+  }, [syncData?.last_sync, isSyncing, triggerSyncNow]);
 
   // Update sync age every minute
   useEffect(() => {
@@ -45,13 +59,18 @@ export function MainLayout({ children, title }: MainLayoutProps) {
   const hasErrors = syncData?.errors && syncData.errors.trim() !== "";
 
   const handleSyncClick = () => {
-    if (isSyncing || hasErrors) {
-      // If syncing or has errors, navigate to sync settings page
+    if (isSyncing) {
+      // If syncing, navigate to sync settings page
       navigate("/settings/sync");
     } else {
-      // If not syncing and no errors, trigger a sync
+      // If not syncing, trigger a sync
       triggerSyncNow();
     }
+  };
+
+  const handleErrorIconClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the parent button's onClick
+    navigate("/settings/sync");
   };
 
   return (
@@ -82,13 +101,18 @@ export function MainLayout({ children, title }: MainLayoutProps) {
                   isSyncing
                     ? "Click to view sync details"
                     : hasErrors
-                    ? "Sync errors - click to view"
+                    ? "Click icon for sync errors, or click text to sync anyway"
                     : "Click to sync now"
                 }
               >
                 <div className="flex items-center gap-1.5">
                   {isSyncing && <Loader2 className="h-3 w-3 animate-spin" />}
-                  {!isSyncing && hasErrors && <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-500" />}
+                  {!isSyncing && hasErrors && (
+                    <AlertTriangle
+                      className="h-3 w-3 text-yellow-600 dark:text-yellow-500 cursor-pointer"
+                      onClick={handleErrorIconClick}
+                    />
+                  )}
                   <span>{isSyncing ? "Syncing..." : `Synced ${syncAge}`}</span>
                 </div>
               </button>

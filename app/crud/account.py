@@ -1,5 +1,6 @@
 import os
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, aliased
@@ -166,7 +167,10 @@ def find_duplicate_accounts(
     1. Find accounts with same org_id + name (candidate duplicates)
     2. For each group, validate by checking if recent transactions overlap
     3. Compare the N most recent transactions from older account to newer account
-    4. Only flag as duplicates if we find high overlap (80%+ by default)
+    4. Flag as duplicates if:
+       - Both accounts have no transactions (e.g., new mortgage accounts)
+       - Older account has <2 transactions (not enough data to validate, flag for user review)
+       - High transaction overlap (80%+ by default when enough transactions exist)
 
     Args:
         transaction_sample_size: Number of recent transactions to compare
@@ -216,13 +220,52 @@ def find_duplicate_accounts(
                 .all()
             )
 
-            if not older_transactions:
-                # No transactions in old account, skip this group
-                logger.debug(
-                    f"Skipping potential duplicate {name} - no transactions in older account"
+            # Get transaction count for newer account
+            newer_txn_count = (
+                db.query(func.count(Transaction.id))
+                .filter(Transaction.account_id == newer_account.id)
+                .scalar()
+            )
+
+            # Case 1: Both accounts have no transactions (e.g., newly created mortgage)
+            # Flag as duplicate based on name match alone
+            if not older_transactions and newer_txn_count == 0:
+                logger.info(
+                    f"Found duplicate (no transactions): {name} ({org_id}) - flagging for user review"
+                )
+                duplicate_groups.append(
+                    {
+                        "org_id": org_id,
+                        "name": name,
+                        "accounts": accounts,
+                    }
                 )
                 continue
 
+            # Case 2: No transactions in old account but new account has some
+            # Skip - likely a false positive or new account setup
+            if not older_transactions:
+                logger.debug(
+                    f"Skipping potential duplicate {name} - no transactions in older account but newer has {newer_txn_count}"
+                )
+                continue
+
+            # Case 3: Older account has very few transactions (<2)
+            # Flag for user review since we can't reliably validate
+            if len(older_transactions) < 2:
+                logger.info(
+                    f"Found duplicate (insufficient data): {name} ({org_id}) - {len(older_transactions)} transaction(s) in older account, flagging for user review"
+                )
+                duplicate_groups.append(
+                    {
+                        "org_id": org_id,
+                        "name": name,
+                        "accounts": accounts,
+                    }
+                )
+                continue
+
+            # Case 4: Enough transactions exist - validate with match ratio
             # Get transactions from newer account
             newer_transactions = (
                 db.query(Transaction).filter(Transaction.account_id == newer_account.id).all()
@@ -244,7 +287,7 @@ def find_duplicate_accounts(
             # Calculate match ratio
             match_ratio = matches / len(older_transactions) if older_transactions else 0
 
-            # Only include if we have enough matches
+            # Check if we have high overlap
             if match_ratio >= min_match_ratio:
                 logger.info(
                     f"Found duplicate: {name} ({org_id}) - {matches}/{len(older_transactions)} transactions match ({match_ratio:.0%})"
@@ -256,6 +299,32 @@ def find_duplicate_accounts(
                         "accounts": accounts,
                     }
                 )
+            # Case 4b: No transaction overlap, but check if time windows don't overlap
+            # This handles recreated accounts (e.g., mortgage) where SimpleFIN loses history
+            elif newer_transactions and matches == 0:
+                # Get date ranges (cast to datetime for mypy - SQLAlchemy returns actual values)
+                older_max_date = max(cast(datetime, t.posted) for t in older_transactions)
+                newer_min_date = min(cast(datetime, t.posted) for t in newer_transactions)
+
+                # If newer account's transactions are all after older account's transactions,
+                # this suggests a recreated account rather than two different accounts
+                if newer_min_date > older_max_date:
+                    logger.info(
+                        f"Found duplicate (non-overlapping windows): {name} ({org_id}) - "
+                        f"older ends {older_max_date.date()}, newer starts {newer_min_date.date()}"
+                    )
+                    duplicate_groups.append(
+                        {
+                            "org_id": org_id,
+                            "name": name,
+                            "accounts": accounts,
+                        }
+                    )
+                else:
+                    logger.debug(
+                        f"Skipping {name} ({org_id}) - overlapping time periods but no matching transactions, "
+                        f"likely different accounts with same name"
+                    )
             else:
                 logger.debug(
                     f"Skipping {name} ({org_id}) - only {matches}/{len(older_transactions)} transactions match ({match_ratio:.0%})"
@@ -278,9 +347,27 @@ def find_duplicate_accounts(
                         .all()
                     )
 
+                    newer_txn_count = (
+                        db.query(func.count(Transaction.id))
+                        .filter(Transaction.account_id == newer.id)
+                        .scalar()
+                    )
+
+                    # Case 1: Both accounts have no transactions - flag as duplicate
+                    if not older_txns and newer_txn_count == 0:
+                        duplicate_pairs.append((older, newer))
+                        continue
+
+                    # Case 2: No transactions in older but newer has some - skip
                     if not older_txns:
                         continue
 
+                    # Case 3: Very few transactions in older (<2) - flag for review
+                    if len(older_txns) < 2:
+                        duplicate_pairs.append((older, newer))
+                        continue
+
+                    # Case 4: Enough transactions - validate with match ratio
                     newer_txns = (
                         db.query(Transaction).filter(Transaction.account_id == newer.id).all()
                     )
@@ -302,6 +389,12 @@ def find_duplicate_accounts(
                     if match_ratio >= min_match_ratio:
                         # Found a duplicate pair
                         duplicate_pairs.append((older, newer))
+                    # Case 4b: No overlap, but check if time windows don't overlap (recreated account)
+                    elif matches == 0:
+                        older_max_date = max(cast(datetime, t.posted) for t in older_txns)
+                        newer_min_date = min(cast(datetime, t.posted) for t in newer_txns)
+                        if newer_min_date > older_max_date:
+                            duplicate_pairs.append((older, newer))
 
             # For each duplicate pair found, create a separate group
             # Group accounts that are transitively related

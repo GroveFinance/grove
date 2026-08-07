@@ -262,11 +262,12 @@ SimpleFin is the currently supported provider. To add a new sync provider:
 When SimpleFIN credentials are refreshed, it creates new account IDs and transaction IDs, resulting in duplicate accounts. The system automatically detects and allows merging of these duplicates.
 
 **Detection Logic** ([app/crud/account.py:find_duplicate_accounts](app/crud/account.py)):
-1. **Stage 1 - Name Matching**: Find accounts with same `(org_id, name)` - these are candidates
-2. **Stage 2 - Transaction Validation**: Only flag as duplicates if they share recent transactions
-   - Compares N most recent transactions from older account (default: 5)
-   - Matches by `(posted, amount, description)` tuple
-   - Requires minimum match ratio (default: 80%, meaning 4 out of 5 must match)
+1. **Stage 1 - Name Matching**: Find accounts with same `(org_id, name)` - uses actual account name, not user's `alt_name`
+2. **Stage 2 - Transaction Validation**: Flags as duplicates if ANY of these conditions are met:
+   - Both accounts have no transactions (e.g., newly created mortgage)
+   - Older account has <2 transactions (insufficient data to validate)
+   - Compares N most recent transactions from older account (default: 5) and requires minimum match ratio (default: 80%, meaning 4 out of 5 must match)
+   - **Non-overlapping time windows**: If 0 matches but newer account's transactions are all after older account's last transaction (indicates recreated account where SimpleFIN lost history)
 
 **Configuration** (via environment variables in `.env`):
 ```bash
@@ -293,7 +294,9 @@ DUPLICATE_DETECTION_MIN_MATCH_RATIO=0.8
 - Manual delete button available if merge isn't appropriate
 
 **Edge Cases**:
-- Accounts with same name but different transactions (e.g., multiple E*TRADE "Stock Plan" accounts) won't be flagged as duplicates
+- Accounts with same name but overlapping time periods and different transactions (e.g., multiple E*TRADE "Stock Plan" accounts) won't be flagged as duplicates
+- Accounts with same name but non-overlapping time windows ARE flagged (recreated accounts like mortgages)
+- Uses actual account `name` field for matching, not `alt_name` (user can set alt_name to anything)
 - Users can adjust detection sensitivity via env vars or manually merge using the API
 
 ## Important Notes

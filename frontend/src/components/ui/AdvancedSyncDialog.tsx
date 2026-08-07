@@ -40,8 +40,13 @@ export function AdvancedSyncDialog({
       return;
     }
     setError("");
-    await onConfirm(days, captureRaw);
+    // Close dialog first, then trigger the sync
+    // This prevents any overlay issues from blocking the page
     onOpenChange(false);
+    // Small delay to let the dialog close animation complete
+    setTimeout(() => {
+      onConfirm(days, captureRaw);
+    }, 100);
   };
 
   return (

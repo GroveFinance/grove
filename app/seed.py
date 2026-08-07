@@ -83,6 +83,7 @@ INITIAL_CATEGORIES = {
         {"name": "Grooming", "budget": 40},
         {"name": "Boarding & Daycare", "budget": 50},
         {"name": "Pet Supplies", "budget": 30},
+        {"name": "Pet Insurance"},
     ],
     "Entertainment": [
         {"name": "Movies", "budget": 20},

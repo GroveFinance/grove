@@ -23,7 +23,10 @@ export default function SimplefinSettingsPage() {
   const { latestRun, isSyncing, triggerSyncNow, refetch: refetchSyncStatus } = useGlobalSyncStatus();
   const [token, setToken] = useState("");
   const [showAdvancedDialog, setShowAdvancedDialog] = useState(false);
-  const [shouldCaptureRaw, setShouldCaptureRaw] = useState(false);
+  // Track which run ID to download from (null = not waiting, number = waiting for that run to complete)
+  const [downloadRunId, setDownloadRunId] = useState<number | null>(null);
+  // Track the run ID that existed before we triggered (so we know when a new one appears)
+  const [previousRunId, setPreviousRunId] = useState<number | null>(null);
 
   // Refresh sync settings when sync completes successfully
   useEffect(() => {
@@ -34,18 +37,26 @@ export default function SimplefinSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestRun?.status, isSyncing, refetch]);
 
-  // Auto-download raw response when sync completes
+  // Auto-download raw response when the sync we triggered completes
   useEffect(() => {
-    if (
-      shouldCaptureRaw &&
-      latestRun &&
-      latestRun.status === "completed"
-    ) {
-      handleDownloadRaw(latestRun.id);
-      setShouldCaptureRaw(false);
+    if (!latestRun) return;
+
+    // If we're waiting for a new run to appear (previousRunId is set but downloadRunId is not)
+    if (previousRunId !== null && downloadRunId === null) {
+      // A new run appeared (different ID than before we triggered)
+      if (latestRun.id !== previousRunId) {
+        setDownloadRunId(latestRun.id);
+        setPreviousRunId(null);
+      }
+    }
+
+    // If we have a run ID to download and it just completed
+    if (downloadRunId !== null && latestRun.id === downloadRunId && latestRun.status === "completed") {
+      handleDownloadRaw(downloadRunId);
+      setDownloadRunId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latestRun?.status, shouldCaptureRaw]);
+  }, [latestRun?.status, latestRun?.id, downloadRunId, previousRunId]);
 
   const handleSave = async () => {
     if (!token.trim()) return;
@@ -64,14 +75,18 @@ export default function SimplefinSettingsPage() {
   };
 
   const handleAdvancedSync = async (daysBack: number, captureRaw: boolean) => {
-    setShouldCaptureRaw(captureRaw);
+    if (captureRaw) {
+      // Remember the current run ID so we can detect when a new one appears
+      setPreviousRunId(latestRun?.id ?? null);
+    }
     try {
       await triggerSyncFromDate("simplefin", daysBack, captureRaw);
       // Start polling for the new run
       setTimeout(() => refetchSyncStatus(), 1000);
     } catch (err) {
       console.error("Failed to trigger advanced sync:", err);
-      setShouldCaptureRaw(false);
+      setPreviousRunId(null);
+      setDownloadRunId(null);
     }
   };
 
@@ -96,15 +111,11 @@ export default function SimplefinSettingsPage() {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        console.log("Raw response downloaded successfully");
         return; // Success, exit the function
       } catch (err) {
         if (attempt === maxRetries - 1) {
           // Last attempt failed
           console.error("Failed to download raw response after retries:", err);
-          // Could show a toast notification here
-        } else {
-          console.log(`Download attempt ${attempt + 1} failed, retrying...`);
         }
       }
     }
@@ -131,7 +142,7 @@ export default function SimplefinSettingsPage() {
                   {formatDistanceToNow(new Date(data.last_sync), { addSuffix: true })}
                 </Badge>
               )}
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <div className="flex">
                   <Button
                     variant="outline"
@@ -154,10 +165,10 @@ export default function SimplefinSettingsPage() {
                   </DropdownMenuTrigger>
                 </div>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleSyncNow} disabled={isSyncing}>
+                  <DropdownMenuItem onSelect={handleSyncNow} disabled={isSyncing}>
                     Sync Now
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowAdvancedDialog(true)} disabled={isSyncing}>
+                  <DropdownMenuItem onSelect={() => setShowAdvancedDialog(true)} disabled={isSyncing}>
                     Advanced Sync
                   </DropdownMenuItem>
                 </DropdownMenuContent>

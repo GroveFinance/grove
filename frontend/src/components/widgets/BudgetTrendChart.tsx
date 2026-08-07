@@ -26,13 +26,18 @@ export function BudgetTrendChart({ categoryData }: BudgetTrendChartProps) {
   if (totalSpent === 0) return null;
 
   // Transform data for Recharts - monthly bars
-  const monthlyChartData = monthlyData.map((month) => ({
-    month: format(new Date(month.month + "-01"), "MMM"),
-    monthDate: month.month, // Keep original YYYY-MM for filtering
-    spent: month.spent,
-    budget: budget,
-    isOverBudget: month.spent > budget,
-  }));
+  // Parse YYYY-MM as local date to avoid timezone shifts in month labels
+  const monthlyChartData = monthlyData.map((month) => {
+    const [year, monthNum] = month.month.split('-').map(Number);
+    const monthDate = new Date(year, monthNum - 1, 1); // months are 0-indexed
+    return {
+      month: format(monthDate, "MMM"),
+      monthDate: month.month, // Keep original YYYY-MM for filtering
+      spent: month.spent,
+      budget: budget,
+      isOverBudget: month.spent > budget,
+    };
+  });
 
   // Separate total data
   const annualBudget = budget * monthlyData.length;
@@ -56,7 +61,9 @@ export function BudgetTrendChart({ categoryData }: BudgetTrendChartProps) {
   const handleMonthlyBarClick = (data: Record<string, unknown>) => {
     if (!data || !data.monthDate) return; // Don't navigate if no month data
 
-    const monthDate = new Date(data.monthDate + "-01");
+    // Parse as local date to avoid timezone shifts
+    const [year, month] = String(data.monthDate).split('-').map(Number);
+    const monthDate = new Date(year, month - 1, 1);
     const start = startOfMonth(monthDate);
     const end = endOfMonth(monthDate);
 
@@ -73,11 +80,15 @@ export function BudgetTrendChart({ categoryData }: BudgetTrendChartProps) {
     if (monthlyData.length === 0) return;
 
     const sortedMonths = [...monthlyData].sort((a, b) => a.month.localeCompare(b.month));
-    const firstMonth = new Date(sortedMonths[0].month + "-01");
-    const lastMonth = new Date(sortedMonths[sortedMonths.length - 1].month + "-01");
 
-    const start = startOfMonth(firstMonth);
-    const end = endOfMonth(lastMonth);
+    // Parse as local dates to avoid timezone shifts
+    const [firstYear, firstMonth] = sortedMonths[0].month.split('-').map(Number);
+    const firstMonthDate = new Date(firstYear, firstMonth - 1, 1);
+    const [lastYear, lastMonth] = sortedMonths[sortedMonths.length - 1].month.split('-').map(Number);
+    const lastMonthDate = new Date(lastYear, lastMonth - 1, 1);
+
+    const start = startOfMonth(firstMonthDate);
+    const end = endOfMonth(lastMonthDate);
 
     // (investment accounts are excluded by default on TransactionsPage)
     navigate(

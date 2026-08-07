@@ -87,6 +87,7 @@ class Transaction(Base):
     is_pending = Column(Boolean, default=False)
     description = Column(Text, nullable=True)
     memo = Column(Text, nullable=True)
+    mcc = Column(String(4), nullable=True)  # Merchant Category Code (4-digit code)
 
     # Content hash for deduplication (SHA256 of account_id:posted:amount:description)
     content_hash = Column(String(64), nullable=True, index=False)  # Index in __table_args__

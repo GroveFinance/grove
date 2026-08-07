@@ -187,8 +187,10 @@ def get_category_trends(
 
     collapsed: dict[tuple[str, str, int, str], float] = {}
     for row in rows:
+        # Format as YYYY-MM, extracting year and month to avoid timezone issues
+        month_str = f"{row.month.year:04d}-{row.month.month:02d}"
         key = (
-            row.month.strftime("%Y-%m"),
+            month_str,
             row.category,
             row.category_id,
             row.group_name,
@@ -292,9 +294,12 @@ def get_budget_trends(
     effective_category_id = get_effective_category_id()
 
     # Query monthly spending by category
+    # Use to_char to format month in database to avoid timezone conversion issues
     query = (
         db.query(
-            func.date_trunc("month", models.Transaction.transacted_at).label("month"),
+            func.to_char(
+                func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"
+            ).label("month"),
             models.Category.id.label("category_id"),
             models.Category.name.label("category"),
             models.Category.budget.label("budget"),
@@ -323,20 +328,20 @@ def get_budget_trends(
 
     # Group and order
     query = query.group_by(
-        func.date_trunc("month", models.Transaction.transacted_at),
+        func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
         models.Category.id,
         models.Category.name,
         models.Category.budget,
     ).order_by(
         models.Category.name,
-        func.date_trunc("month", models.Transaction.transacted_at),
+        func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
     )
 
     rows = query.all()
 
     return [
         {
-            "month": row.month.strftime("%Y-%m"),
+            "month": row.month,  # Already formatted as YYYY-MM by to_char
             "category_id": row.category_id,
             "category": row.category,
             "budget": float(row.budget or 0),
@@ -389,9 +394,12 @@ def get_utilities_report(
 
     if mode == "monthly":
         # Get spending by month for each utility
+        # Use to_char to format month in database to avoid timezone conversion issues
         query = (
             db.query(
-                func.date_trunc("month", models.Transaction.transacted_at).label("month"),
+                func.to_char(
+                    func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"
+                ).label("month"),
                 models.Category.name.label("category"),
                 func.abs(func.sum(models.TransactionSplit.amount)).label("amount"),
             )
@@ -418,10 +426,10 @@ def get_utilities_report(
 
         # Group and order
         query = query.group_by(
-            func.date_trunc("month", models.Transaction.transacted_at),
+            func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
             models.Category.name,
         ).order_by(
-            func.date_trunc("month", models.Transaction.transacted_at),
+            func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
             models.Category.name,
         )
 
@@ -429,7 +437,7 @@ def get_utilities_report(
 
         return [
             {
-                "month": row.month.strftime("%Y-%m"),
+                "month": row.month,  # Already formatted as YYYY-MM by to_char
                 "category": row.category,
                 "amount": float(row.amount or 0),
             }
@@ -660,7 +668,8 @@ def get_income_vs_expenses(
 
     return [
         IncomeExpenseDataPoint(
-            month=row.month.strftime("%Y-%m"),
+            # Format as YYYY-MM, extracting year and month to avoid timezone issues
+            month=f"{row.month.year:04d}-{row.month.month:02d}",
             income=float(row.income or 0),
             expenses=abs(float(row.expenses or 0)),  # Convert to positive for display
             net=float(row.income or 0) - abs(float(row.expenses or 0)),  # income - expenses
