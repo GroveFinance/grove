@@ -19,7 +19,12 @@ import type {
   CategoryUpdate,
   GroupUpdate,
   PayeeUpdate,
+  OnboardingStatus,
+  SettingKey,
+  SettingsResponse,
+  SettingsValues,
 } from "@/types";
+import { DEFAULT_SETTINGS } from "@/types";
 import { generateMockReport } from "./reports";
 
 // Transaction update payload type
@@ -583,4 +588,33 @@ export async function getLatestSyncRun(_name = "simplefin"): Promise<any> {
 export async function getSyncRuns(_name = "simplefin", _limit = 10): Promise<any[]> {
   await delay();
   return [mockLatestSyncRun];
+}
+
+// ============================================================================
+// Settings API (in-memory; mock mode has no backend)
+// ============================================================================
+
+const mockSettings: Partial<SettingsValues> = {};
+
+function mockSettingsResponse(): SettingsResponse {
+  return {
+    values: { ...DEFAULT_SETTINGS, ...mockSettings },
+    explicit: Object.keys(mockSettings).sort() as SettingKey[],
+  };
+}
+
+export async function getSettings(): Promise<SettingsResponse> {
+  await delay();
+  return mockSettingsResponse();
+}
+
+export async function updateSettings(changes: Partial<SettingsValues>): Promise<SettingsResponse> {
+  await delay();
+  Object.assign(mockSettings, changes);
+  return mockSettingsResponse();
+}
+
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
+  await delay();
+  return { has_synced: true, has_rules: store.getData().payees.some((p) => p.category_id !== 0) };
 }

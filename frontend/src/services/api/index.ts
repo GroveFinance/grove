@@ -72,3 +72,10 @@ export * from "./account_balance";
 
 // System API - always from real API (no mock needed)
 export * from "./system";
+
+// Settings API - conditionally mock
+import * as realSettings from "./settings";
+
+export const getSettings: typeof realSettings.getSettings = USE_MOCK ? mockAPI.getSettings : realSettings.getSettings;
+export const updateSettings: typeof realSettings.updateSettings = USE_MOCK ? mockAPI.updateSettings : realSettings.updateSettings;
+export const getOnboardingStatus: typeof realSettings.getOnboardingStatus = USE_MOCK ? mockAPI.getOnboardingStatus : realSettings.getOnboardingStatus;
