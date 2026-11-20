@@ -1,13 +1,11 @@
 """Registry of allowed per-user settings: key -> type and default.
 
-To add a setting: add an entry here, add it to `SettingsValues` in
-frontend/src/types/settings.ts, and give it a default in the mock API.
+To add a setting: add an entry here, add it to `SettingsValues` and
+`DEFAULT_SETTINGS` in frontend/src/types/settings.ts.
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal
-
-from pydantic import StrictBool, StrictStr, TypeAdapter, ValidationError
+from typing import Any
 
 
 class SettingsValidationError(ValueError):
@@ -16,20 +14,19 @@ class SettingsValidationError(ValueError):
 
 @dataclass(frozen=True)
 class SettingDef:
-    adapter: TypeAdapter
+    kind: type  # exact type required (no coercion): bool or str
     default: Any
+    choices: tuple[str, ...] | None = None
     nullable: bool = False
 
 
 SETTINGS_REGISTRY: dict[str, SettingDef] = {
-    "theme.mode": SettingDef(TypeAdapter(Literal["dark", "light", "system"]), "dark"),
-    "theme.name": SettingDef(
-        TypeAdapter(Literal["grove", "ocean", "sunset", "forest", "slate"]), "grove"
-    ),
-    "onboarding.dismissed": SettingDef(TypeAdapter(StrictBool), False),
-    "onboarding.visited.accounts": SettingDef(TypeAdapter(StrictBool), False),
-    "onboarding.visited.categories": SettingDef(TypeAdapter(StrictBool), False),
-    "updates.dismissed_version": SettingDef(TypeAdapter(StrictStr | None), None, nullable=True),
+    "theme.mode": SettingDef(str, "dark", choices=("dark", "light", "system")),
+    "theme.name": SettingDef(str, "grove", choices=("grove", "ocean", "sunset", "forest", "slate")),
+    "onboarding.dismissed": SettingDef(bool, False),
+    "onboarding.visited.accounts": SettingDef(bool, False),
+    "onboarding.visited.categories": SettingDef(bool, False),
+    "updates.dismissed_version": SettingDef(str, None, nullable=True),
 }
 
 
@@ -43,7 +40,9 @@ def validate_setting(key: str, value: Any) -> Any:
         raise SettingsValidationError(f"Unknown setting: {key}")
     if value is None:
         return None
-    try:
-        return definition.adapter.validate_python(value, strict=True)
-    except ValidationError as e:
-        raise SettingsValidationError(f"Invalid value for {key}: {value!r}") from e
+    # type() rather than isinstance(): bool is a subclass of int, and we want no coercion.
+    if type(value) is not definition.kind:
+        raise SettingsValidationError(f"Invalid value for {key}: {value!r}")
+    if definition.choices is not None and value not in definition.choices:
+        raise SettingsValidationError(f"Invalid value for {key}: {value!r}")
+    return value
