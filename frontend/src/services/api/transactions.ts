@@ -22,7 +22,6 @@ export async function getTransactions(
   if (params.sort_by) query.append("sort_by", params.sort_by)
   if (params.sort_order) query.append("sort_order", params.sort_order)
   if (params.skip_transfers !== undefined) query.append("skip_transfers", params.skip_transfers.toString())
-  if (params.split_mode !== undefined) query.append("split_mode", params.split_mode.toString())
   params.account_types?.forEach(type => query.append("account_types", type))
   params.exclude_account_types?.forEach(type => query.append("exclude_account_types", type))
 
