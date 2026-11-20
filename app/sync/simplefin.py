@@ -506,10 +506,13 @@ def process_sync_range(
                 }
             stats["accounts"][account_id]["transactions_new"] += new_txns
             stats["accounts"][account_id]["transactions_updated"] += updated_txns
-            stats["accounts"][account_id]["holdings"] += holding_count
+            # Holdings are a point-in-time snapshot (not range-based), so replace
+            # rather than accumulate when a sync spans multiple date ranges.
+            account_stats = stats["accounts"][account_id]
+            stats["total_holdings"] += holding_count - account_stats["holdings"]
+            account_stats["holdings"] = holding_count
             stats["total_transactions"] += new_txns
             stats["total_updates"] += updated_txns
-            stats["total_holdings"] += holding_count
 
     if total_txns > 0 or total_updates > 0:
         logger.info(
@@ -742,15 +745,22 @@ def process_transactions(db: Session, transactions: list[dict], account_id: str)
 
 
 def process_holdings(db: Session, holdings: list[dict], account_id: str) -> int:
-    cnt = 0
+    """Create new holdings and refresh values of existing ones.
+
+    Returns the number of holdings seen in this sync.
+    """
     for holding in holdings:
         holding["account_id"] = account_id
-        holding_id = holding["id"]
-        if not db.get(Holding, holding_id):
-            data = HoldingCreate(**holding)
+        data = HoldingCreate(**holding)
+        existing = db.get(Holding, data.id)
+        if existing is None:
             holding_crud.create_holding(db, data)
-            cnt += 1
-    return cnt
+        else:
+            # Keep the original id/created; refresh everything SimpleFIN reports.
+            for field in data.model_dump(exclude={"id", "created"}):
+                setattr(existing, field, getattr(data, field))
+            db.commit()
+    return len(holdings)
 
 
 def process_account_balance(db: Session, account_data: dict):
