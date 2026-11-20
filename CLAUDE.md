@@ -169,6 +169,17 @@ if category_ids:
 
 See `app/crud/transaction.py` and `frontend/src/hooks/queries/useTransactions.ts` for reference implementations.
 
+### User Settings
+
+User preferences (theme, Getting Started progress/dismissal, dismissed update version) are stored server-side so they follow the user across devices. Do not store preferences in localStorage.
+
+- **Tables**: `users` (one seeded `default` user) and `user_settings` (one row per `(user_id, key)`, JSON `value`)
+- **Registry**: `app/settings_registry.py` defines every allowed key, its type, and default. Unknown keys / wrong types → 422
+- **API**: `GET /api/settings` → `{values, explicit}` (`explicit` = keys actually stored); `PATCH /api/settings` with `{key: value}`. `null` resets non-nullable keys to default
+- **Current user**: `app/api/deps.py:get_current_user` always returns the default user. This is the seam for future authentication
+- **Frontend**: `useSettings()` / `useUpdateSettings()` in `frontend/src/hooks/queries/useSettings.ts` (optimistic updates). The theme keeps a localStorage cache only to avoid a flash on load
+- **Adding a setting**: add it to `SETTINGS_REGISTRY`, to `SettingsValues` + `DEFAULT_SETTINGS` in `frontend/src/types/settings.ts`
+
 ### Frontend Structure
 
 - **src/App.tsx**: Main router and layout configuration
