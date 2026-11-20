@@ -68,11 +68,8 @@ export function useLegacySettingsMigration(): void {
       finishMigration();
       return;
     }
-    mutate(patch, {
-      onSuccess: finishMigration,
-      onError: () => {
-        started.current = false; // retry on a later load
-      },
-    });
+    // On failure, leave the legacy keys and the flag alone: `started` stays true,
+    // so this retries on the next page load rather than looping in this one.
+    mutate(patch, { onSuccess: finishMigration });
   }, [settings, mutate]);
 }

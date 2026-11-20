@@ -66,3 +66,21 @@ def test_returns_number_of_holdings_seen(db, account):
     )
 
     assert count == 2
+
+
+def test_invalid_holding_is_skipped_without_aborting_others(db, account):
+    process_holdings(db, [simplefin_holding()], ACCOUNT_ID)
+
+    count = process_holdings(
+        db,
+        [
+            simplefin_holding(market_value=None),  # SimpleFIN sent incomplete data
+            simplefin_holding(id="HOL-2", symbol="VTI"),
+        ],
+        ACCOUNT_ID,
+    )
+
+    db.expire_all()
+    assert db.get(Holding, "HOL-1").market_value == Decimal("1500.00")  # left as-is
+    assert db.get(Holding, "HOL-2") is not None
+    assert count == 1

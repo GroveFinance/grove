@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app import models
@@ -747,11 +748,18 @@ def process_transactions(db: Session, transactions: list[dict], account_id: str)
 def process_holdings(db: Session, holdings: list[dict], account_id: str) -> int:
     """Create new holdings and refresh values of existing ones.
 
-    Returns the number of holdings seen in this sync.
+    Holdings with incomplete data are logged and skipped so one bad record
+    can't fail the whole sync. Returns the number of holdings processed.
     """
+    processed = 0
     for holding in holdings:
         holding["account_id"] = account_id
-        data = HoldingCreate(**holding)
+        try:
+            data = HoldingCreate(**holding)
+        except ValidationError as e:
+            logger.warning(f"Skipping holding {holding.get('id')} with invalid data: {e}")
+            continue
+        processed += 1
         existing = db.get(Holding, data.id)
         if existing is None:
             holding_crud.create_holding(db, data)
@@ -760,7 +768,7 @@ def process_holdings(db: Session, holdings: list[dict], account_id: str) -> int:
             for field in data.model_dump(exclude={"id", "created"}):
                 setattr(existing, field, getattr(data, field))
             db.commit()
-    return len(holdings)
+    return processed
 
 
 def process_account_balance(db: Session, account_data: dict):
