@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { exportCategories, importCategories } from "@/services/api/categories";
 import { useQueryClient } from "@tanstack/react-query";
+import { useMarkOnboardingVisited } from "@/hooks/useOnboardingProgress";
 import {
   DndContext,
   closestCenter,
@@ -289,7 +290,6 @@ function DroppableGroup({
   );
 }
 
-const CATEGORIES_VISITED_KEY = "grove_categories_visited";
 
 export default function SettingsPage() {
   const { data: groups, isLoading } = useGroups();
@@ -305,9 +305,7 @@ export default function SettingsPage() {
   const [isImporting, setIsImporting] = useState(false);
 
   // Mark categories page as visited for onboarding progress
-  useEffect(() => {
-    localStorage.setItem(CATEGORIES_VISITED_KEY, "true");
-  }, []);
+  useMarkOnboardingVisited("categories");
 
   // Export handler
   const handleExport = async () => {

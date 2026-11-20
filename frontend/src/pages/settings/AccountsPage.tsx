@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAccounts } from "@/hooks/queries/useAccounts"
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { updateAccount, deleteAccount, getDuplicateAccounts, mergeAccounts } from "@/services/api"
 import type { DuplicateGroup, DuplicateAccount } from "@/services/api/accounts"
 import type { Account, AccountType } from "@/types"
 import { ACCOUNT_TYPE_OPTIONS } from "@/types/api-types"
-import { ACCOUNTS_VISITED_KEY } from "@/hooks/useOnboardingProgress"
+import { useMarkOnboardingVisited } from "@/hooks/useOnboardingProgress"
 import { MainLayout } from "@/layouts/MainLayout"
 import {
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -29,9 +29,7 @@ export default function AccountSettingsPage() {
   const [dismissedGroups, setDismissedGroups] = useState<Set<string>>(new Set())
 
   // Mark accounts page as visited for onboarding
-  useEffect(() => {
-    localStorage.setItem(ACCOUNTS_VISITED_KEY, "true")
-  }, [])
+  useMarkOnboardingVisited("accounts")
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Account> }) =>
