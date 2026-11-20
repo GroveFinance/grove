@@ -543,3 +543,11 @@ class SystemInfo(BaseModel):
     environment: str = Field(..., description="Environment (production, development)")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+## ===== User Settings =====
+
+
+class SettingsOut(BaseModel):
+    values: dict[str, Any]  # every registry key: stored value or default
+    explicit: list[str]  # keys stored in the DB (sorted)

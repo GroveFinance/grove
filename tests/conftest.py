@@ -17,8 +17,7 @@ def db():
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
-    tables = [models.Org.__table__, models.Account.__table__, models.Holding.__table__]
-    models.Base.metadata.create_all(engine, tables=tables)
+    models.Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False)()
     try:
         yield session
