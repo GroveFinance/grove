@@ -551,3 +551,8 @@ class SystemInfo(BaseModel):
 class SettingsOut(BaseModel):
     values: dict[str, Any]  # every registry key: stored value or default
     explicit: list[str]  # keys stored in the DB (sorted)
+
+
+class OnboardingStatus(BaseModel):
+    has_synced: bool
+    has_rules: bool
