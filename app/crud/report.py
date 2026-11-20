@@ -3,8 +3,9 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import case, extract, func
+from sqlalchemy import case, extract, func, literal_column
 from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql.elements import ColumnClause
 
 from app import models
 from app.crud.query_builder import (
@@ -21,6 +22,12 @@ from app.schemas import (
     TopTransactionDataPoint,
     UpcomingBillDataPoint,
 )
+
+# Render these as SQL literals, not bound parameters: psycopg 3 binds parameters
+# server-side, so date_trunc(%(p1)s, col) in SELECT and date_trunc(%(p2)s, col) in
+# GROUP BY would be different expressions to PostgreSQL (GroupingError).
+_MONTH: ColumnClause[str] = literal_column("'month'")
+_YYYY_MM: ColumnClause[str] = literal_column("'YYYY-MM'")
 
 
 def get_category_trends(
@@ -50,7 +57,7 @@ def get_category_trends(
 
     base_query = (
         db.query(
-            func.date_trunc("month", models.Transaction.transacted_at).label("month"),
+            func.date_trunc(_MONTH, models.Transaction.transacted_at).label("month"),
             resolved_category_id.label("category_id"),
             resolved_category_name.label("category"),
             resolved_group_name.label("group_name"),
@@ -79,7 +86,7 @@ def get_category_trends(
     base_query = apply_transfer_exclusion(base_query, db)
 
     base = base_query.group_by(
-        func.date_trunc("month", models.Transaction.transacted_at),
+        func.date_trunc(_MONTH, models.Transaction.transacted_at),
         resolved_category_id,
         resolved_category_name,
         resolved_group_name,
@@ -297,9 +304,9 @@ def get_budget_trends(
     # Use to_char to format month in database to avoid timezone conversion issues
     query = (
         db.query(
-            func.to_char(
-                func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"
-            ).label("month"),
+            func.to_char(func.date_trunc(_MONTH, models.Transaction.transacted_at), _YYYY_MM).label(
+                "month"
+            ),
             models.Category.id.label("category_id"),
             models.Category.name.label("category"),
             models.Category.budget.label("budget"),
@@ -328,13 +335,13 @@ def get_budget_trends(
 
     # Group and order
     query = query.group_by(
-        func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
+        func.to_char(func.date_trunc(_MONTH, models.Transaction.transacted_at), _YYYY_MM),
         models.Category.id,
         models.Category.name,
         models.Category.budget,
     ).order_by(
         models.Category.name,
-        func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
+        func.to_char(func.date_trunc(_MONTH, models.Transaction.transacted_at), _YYYY_MM),
     )
 
     rows = query.all()
@@ -398,7 +405,7 @@ def get_utilities_report(
         query = (
             db.query(
                 func.to_char(
-                    func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"
+                    func.date_trunc(_MONTH, models.Transaction.transacted_at), _YYYY_MM
                 ).label("month"),
                 models.Category.name.label("category"),
                 func.abs(func.sum(models.TransactionSplit.amount)).label("amount"),
@@ -426,10 +433,10 @@ def get_utilities_report(
 
         # Group and order
         query = query.group_by(
-            func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
+            func.to_char(func.date_trunc(_MONTH, models.Transaction.transacted_at), _YYYY_MM),
             models.Category.name,
         ).order_by(
-            func.to_char(func.date_trunc("month", models.Transaction.transacted_at), "YYYY-MM"),
+            func.to_char(func.date_trunc(_MONTH, models.Transaction.transacted_at), _YYYY_MM),
             models.Category.name,
         )
 
@@ -568,9 +575,9 @@ def get_income_vs_expenses(
     # Group by month and sum income
     income_query = (
         income_base.with_entities(
-            func.date_trunc("month", models.Transaction.transacted_at).label("month"),
+            func.date_trunc(_MONTH, models.Transaction.transacted_at).label("month"),
             func.sum(models.TransactionSplit.amount).label("income"),
-        ).group_by(func.date_trunc("month", models.Transaction.transacted_at))
+        ).group_by(func.date_trunc(_MONTH, models.Transaction.transacted_at))
     ).subquery()
 
     # Build query for paycheck income specifically
@@ -595,10 +602,10 @@ def get_income_vs_expenses(
         paycheck_query = (
             paycheck_base.filter(effective_category_id == paycheck_category_id)
             .with_entities(
-                func.date_trunc("month", models.Transaction.transacted_at).label("month"),
+                func.date_trunc(_MONTH, models.Transaction.transacted_at).label("month"),
                 func.sum(models.TransactionSplit.amount).label("paycheck_income"),
             )
-            .group_by(func.date_trunc("month", models.Transaction.transacted_at))
+            .group_by(func.date_trunc(_MONTH, models.Transaction.transacted_at))
         ).subquery()
     else:
         # No paycheck category exists, create empty subquery
@@ -626,9 +633,9 @@ def get_income_vs_expenses(
     # Group by month and sum expenses
     expense_query = (
         expense_base.with_entities(
-            func.date_trunc("month", models.Transaction.transacted_at).label("month"),
+            func.date_trunc(_MONTH, models.Transaction.transacted_at).label("month"),
             func.sum(models.TransactionSplit.amount).label("expenses"),
-        ).group_by(func.date_trunc("month", models.Transaction.transacted_at))
+        ).group_by(func.date_trunc(_MONTH, models.Transaction.transacted_at))
     ).subquery()
 
     # Generate all months in the range (not just months with transactions)

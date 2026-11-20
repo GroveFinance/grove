@@ -63,7 +63,8 @@ def get_payees(db: Session, exclude_investment: bool = False) -> list[Payee]:
     # Add transaction_count as an attribute to each Payee object
     payees = []
     for payee, transaction_count in results:
-        payee.transaction_count = transaction_count
+        # Non-mapped attribute read by the PayeeOut response schema
+        setattr(payee, "transaction_count", transaction_count)  # noqa: B010
         payees.append(payee)
 
     return payees
@@ -87,21 +88,6 @@ def delete_payee(db: Session, id: int) -> bool:
     db.delete(obj)
     db.commit()
     return True
-
-
-def apply_payees_to_transactions(db: Session, transaction_ids: list[str]) -> int:
-    payees = db.query(Payee).all()
-    txns = db.query(Transaction).filter(Transaction.id.in_(transaction_ids)).all()
-    updated = 0
-
-    for txn in txns:
-        for payee in payees:
-            if payee.keyword.lower() in (txn.description or "").lower():
-                txn.category_id = payee.category_id
-                updated += 1
-                break  # only apply the first matching payee
-    db.commit()
-    return updated
 
 
 def _find_category_by_name_case_insensitive(

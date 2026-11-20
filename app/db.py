@@ -2,8 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # Load .env in development
 load_dotenv()
@@ -18,7 +17,9 @@ engine = create_engine(DATABASE_URL, future=True, echo=False)
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 # Dependency

@@ -134,7 +134,7 @@ def get_transactions(
     account_types: list[str] | None = None,
     exclude_account_types: list[str] | None = None,
     include_hidden: bool = False,
-) -> list[models.Transaction]:
+) -> list[models.Transaction] | list[models.TransactionSplit]:
     # Initialize mutable defaults
     if account_ids is None:
         account_ids = []

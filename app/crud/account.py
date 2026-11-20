@@ -2,7 +2,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from app import models
@@ -148,7 +148,7 @@ def _get_latest_balance(db: Session, account_id: str):
     latest = (
         db.query(AccountBalance)
         .filter(AccountBalance.account_id == account_id)
-        .order_by(desc(AccountBalance.balance_date))
+        .order_by(AccountBalance.balance_date.desc())
         .first()
     )
     if latest:
@@ -215,7 +215,7 @@ def find_duplicate_accounts(
             older_transactions = (
                 db.query(Transaction)
                 .filter(Transaction.account_id == older_account.id)
-                .order_by(desc(Transaction.posted))
+                .order_by(Transaction.posted.desc())
                 .limit(transaction_sample_size)
                 .all()
             )
@@ -342,7 +342,7 @@ def find_duplicate_accounts(
                     older_txns = (
                         db.query(Transaction)
                         .filter(Transaction.account_id == older.id)
-                        .order_by(desc(Transaction.posted))
+                        .order_by(Transaction.posted.desc())
                         .limit(transaction_sample_size)
                         .all()
                     )

@@ -25,7 +25,6 @@ from app.schemas import (
     HoldingCreate,
     OrgCreate,
     OrgUpdate,
-    SyncConfigOut,
     SyncConfigUpdate,
 )
 
@@ -172,7 +171,7 @@ def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
 
 def run(
     db: Session,
-    config: SyncConfigOut,
+    config: SyncConfig,
     sync_run_id: int | None = None,
     from_date: datetime | None = None,
     capture_raw: bool = False,
@@ -367,7 +366,7 @@ def handle_new_account(cfg: dict, db: Session, account_id: str, already_synced_f
 
 
 def process_initial_sync(
-    cfg: dict, db: Session, config: SyncConfigOut, stats: dict[str, Any] | None = None
+    cfg: dict, db: Session, config: SyncConfig, stats: dict[str, Any] | None = None
 ):
     """Walk backwards month by month until 2 consecutive months with no data or max months reached."""
     end = datetime.now(UTC)
@@ -404,7 +403,7 @@ def process_initial_sync(
 def process_sync_range(
     cfg: dict,
     db: Session,
-    config: SyncConfigOut,
+    config: SyncConfig,
     start: datetime,
     end: datetime,
     stats: dict[str, Any] | None = None,
@@ -880,10 +879,6 @@ def classify_accounts(db: Session):
         # 4. Available balance heuristic
         if not acct_type and getattr(account, "available_balance", None) == 0:
             acct_type = "credit_card"
-
-        # 5. Fallback: use SimpleFIN `type` string
-        if not acct_type and account.type:
-            acct_type = account.type.lower()
 
         if acct_type:
             from app.models import AccountType

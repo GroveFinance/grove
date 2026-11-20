@@ -1,4 +1,6 @@
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from alembic.config import Config
 from fastapi import FastAPI
@@ -11,6 +13,17 @@ from app.logger import logger
 from app.seed import seed_initial_categories
 from app.sync.manager import init_sync_scheduler
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    logger.info("Starting Grove")
+    run_migrations()
+    seed_initial_categories()
+    init_sync_scheduler()
+    logger.info("Grove startup complete")
+    yield
+
+
 app = FastAPI(
     title="Grove",
     description="A personal finance management tool",
@@ -19,7 +32,7 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     redirect_slashes=False,  # Prevent redirect interference with SPA catch-all
-    logger=logger,
+    lifespan=lifespan,
 )
 
 # Trust proxy headers for HTTPS redirects - allow all hosts
@@ -60,15 +73,6 @@ if os.getenv("ENV") == "production":
 
         # Default to SPA index.html
         return FileResponse("/app/frontend/dist/index.html")
-
-
-@app.on_event("startup")
-def startup():
-    logger.info("Starting Grove")
-    run_migrations()
-    seed_initial_categories()
-    init_sync_scheduler()
-    logger.info("Grove startup complete")
 
 
 def run_migrations():
