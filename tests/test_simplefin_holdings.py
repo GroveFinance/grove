@@ -84,3 +84,38 @@ def test_invalid_holding_is_skipped_without_aborting_others(db, account):
     assert db.get(Holding, "HOL-1").market_value == Decimal("1500.00")  # left as-is
     assert db.get(Holding, "HOL-2") is not None
     assert count == 1
+
+
+def test_holding_missing_from_feed_is_removed(db, account):
+    process_holdings(db, [simplefin_holding(), simplefin_holding(id="HOL-OLD")], ACCOUNT_ID)
+
+    process_holdings(db, [simplefin_holding()], ACCOUNT_ID)
+
+    assert db.get(Holding, "HOL-OLD") is None
+    assert db.get(Holding, "HOL-1") is not None
+
+
+def test_other_accounts_holdings_untouched(db, account):
+    db.add(Account(id="ACT-2", name="Other", org_id="org-1"))
+    db.commit()
+    process_holdings(db, [simplefin_holding(id="HOL-OTHER")], "ACT-2")
+
+    process_holdings(db, [simplefin_holding()], ACCOUNT_ID)
+
+    assert db.get(Holding, "HOL-OTHER") is not None
+
+
+def test_empty_feed_keeps_existing_holdings(db, account):
+    process_holdings(db, [simplefin_holding()], ACCOUNT_ID)
+
+    process_holdings(db, [], ACCOUNT_ID)
+
+    assert db.get(Holding, "HOL-1") is not None
+
+
+def test_invalid_holding_is_not_removed(db, account):
+    process_holdings(db, [simplefin_holding()], ACCOUNT_ID)
+
+    process_holdings(db, [simplefin_holding(market_value=None)], ACCOUNT_ID)
+
+    assert db.get(Holding, "HOL-1") is not None

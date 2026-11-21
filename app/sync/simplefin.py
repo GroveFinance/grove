@@ -745,11 +745,16 @@ def process_transactions(db: Session, transactions: list[dict], account_id: str)
 
 
 def process_holdings(db: Session, holdings: list[dict], account_id: str) -> int:
-    """Create new holdings and refresh values of existing ones.
+    """Create new holdings, refresh existing ones, and remove superseded ones.
 
-    Holdings with incomplete data are logged and skipped so one bad record
-    can't fail the whole sync. Returns the number of holdings processed.
+    The feed's list is authoritative for this account: stored holdings whose id
+    is no longer reported are deleted (SimpleFIN sometimes re-issues holding ids).
+    An empty list is treated as suspicious and existing holdings are kept.
+    Holdings with incomplete data are logged and skipped (but not deleted) so one
+    bad record can't fail the whole sync. Returns the number of holdings processed.
     """
+    remove_superseded_holdings(db, account_id, {h.get("id") for h in holdings})
+
     processed = 0
     for holding in holdings:
         holding["account_id"] = account_id
@@ -768,6 +773,26 @@ def process_holdings(db: Session, holdings: list[dict], account_id: str) -> int:
                 setattr(existing, field, getattr(data, field))
             db.commit()
     return processed
+
+
+def remove_superseded_holdings(db: Session, account_id: str, feed_ids: set[str | None]) -> None:
+    """Delete stored holdings for the account that the feed no longer reports."""
+    stored = db.query(Holding).filter(Holding.account_id == account_id).all()
+    if not feed_ids:
+        if stored:
+            logger.warning(
+                f"SimpleFIN returned no holdings for account {account_id}; keeping "
+                f"{len(stored)} stored holding(s). Use 'Reset holdings' if it's really empty."
+            )
+        return
+    superseded = [h for h in stored if h.id not in feed_ids]
+    for holding in superseded:
+        db.delete(holding)
+    if superseded:
+        db.commit()
+        logger.info(
+            f"Removed {len(superseded)} holding(s) no longer reported for account {account_id}"
+        )
 
 
 def process_account_balance(db: Session, account_data: dict):
