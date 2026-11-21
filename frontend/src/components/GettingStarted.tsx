@@ -15,10 +15,12 @@ interface GettingStartedProps {
 }
 
 export function GettingStarted({ onNavClick }: GettingStartedProps) {
-  const { steps, completedCount, totalCount, isComplete, isDismissed, dismiss } =
+  const { steps, completedCount, totalCount, isComplete, isDismissed, isLoading, dismiss } =
     useOnboardingProgress();
 
-  if (isDismissed) {
+  // Render nothing until server state is known, so a checklist dismissed on
+  // another device doesn't flash here.
+  if (isLoading || isDismissed) {
     return null;
   }
 

@@ -42,7 +42,6 @@ def list_transactions(
     sort_by: str = "transacted_at",
     sort_order: str = "desc",
     skip_transfers: bool = False,
-    split_mode: bool = False,
     account_types: list[str] | None = Query(
         None,
         description="Filter by account types (e.g., 'bank', 'credit_card', 'investment', 'loan')",
@@ -76,7 +75,6 @@ def list_transactions(
         sort_by,
         sort_order,
         skip_transfers,
-        split_mode,
         account_types,
         exclude_account_types,
         include_hidden,

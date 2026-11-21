@@ -54,12 +54,6 @@ def delete_payee(id: int, db: Session = Depends(get_db)):
     return {"success": True}
 
 
-@router.post("/apply", response_model=dict, operation_id="apply_payees")
-def apply_payees(transaction_ids: list[str], db: Session = Depends(get_db)):
-    updated = crud.apply_payees_to_transactions(db, transaction_ids)
-    return {"updated": updated}
-
-
 @router.post("/import", response_model=PayeeImportResponse, operation_id="import_payees")
 async def import_payees(
     file: UploadFile = File(...),

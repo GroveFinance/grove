@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.crud import account as crud
+from app.crud import holding as holding_crud
 from app.db import get_db
 from app.logger import logger
 from app.schemas import (
@@ -99,6 +100,14 @@ def delete_account(id: str, db: Session = Depends(get_db)):
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return account
+
+
+@router.post("/{id}/reset-holdings", operation_id="reset_account_holdings")
+def reset_account_holdings(id: str, db: Session = Depends(get_db)) -> dict[str, int]:
+    """Delete all holdings for an account; the next sync re-creates current ones."""
+    if not crud.get_account_by_id(db, id):
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {"deleted": holding_crud.delete_holdings_for_account(db, id)}
 
 
 @router.post("/merge", response_model=AccountMergeResponse, operation_id="merge_accounts")

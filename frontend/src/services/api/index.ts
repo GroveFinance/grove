@@ -25,6 +25,7 @@ export const updateAccount = USE_MOCK ? mockAPI.updateAccount : realAccounts.upd
 export const deleteAccount = USE_MOCK ? mockAPI.deleteAccount : realAccounts.deleteAccount;
 export const getDuplicateAccounts = USE_MOCK ? mockAPI.getDuplicateAccounts : realAccounts.getDuplicateAccounts;
 export const mergeAccounts = USE_MOCK ? mockAPI.mergeAccounts : realAccounts.mergeAccounts;
+export const resetAccountHoldings = USE_MOCK ? mockAPI.resetAccountHoldings : realAccounts.resetAccountHoldings;
 
 export const getTransactions = USE_MOCK ? mockAPI.getTransactions : realTransactions.getTransactions;
 export const updateTransaction = USE_MOCK ? mockAPI.updateTransaction : realTransactions.updateTransaction;
@@ -72,3 +73,10 @@ export * from "./account_balance";
 
 // System API - always from real API (no mock needed)
 export * from "./system";
+
+// Settings API - conditionally mock
+import * as realSettings from "./settings";
+
+export const getSettings: typeof realSettings.getSettings = USE_MOCK ? mockAPI.getSettings : realSettings.getSettings;
+export const updateSettings: typeof realSettings.updateSettings = USE_MOCK ? mockAPI.updateSettings : realSettings.updateSettings;
+export const getOnboardingStatus: typeof realSettings.getOnboardingStatus = USE_MOCK ? mockAPI.getOnboardingStatus : realSettings.getOnboardingStatus;

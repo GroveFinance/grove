@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app import models
@@ -24,7 +25,6 @@ from app.schemas import (
     HoldingCreate,
     OrgCreate,
     OrgUpdate,
-    SyncConfigOut,
     SyncConfigUpdate,
 )
 
@@ -171,7 +171,7 @@ def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
 
 def run(
     db: Session,
-    config: SyncConfigOut,
+    config: SyncConfig,
     sync_run_id: int | None = None,
     from_date: datetime | None = None,
     capture_raw: bool = False,
@@ -366,7 +366,7 @@ def handle_new_account(cfg: dict, db: Session, account_id: str, already_synced_f
 
 
 def process_initial_sync(
-    cfg: dict, db: Session, config: SyncConfigOut, stats: dict[str, Any] | None = None
+    cfg: dict, db: Session, config: SyncConfig, stats: dict[str, Any] | None = None
 ):
     """Walk backwards month by month until 2 consecutive months with no data or max months reached."""
     end = datetime.now(UTC)
@@ -403,7 +403,7 @@ def process_initial_sync(
 def process_sync_range(
     cfg: dict,
     db: Session,
-    config: SyncConfigOut,
+    config: SyncConfig,
     start: datetime,
     end: datetime,
     stats: dict[str, Any] | None = None,
@@ -506,10 +506,13 @@ def process_sync_range(
                 }
             stats["accounts"][account_id]["transactions_new"] += new_txns
             stats["accounts"][account_id]["transactions_updated"] += updated_txns
-            stats["accounts"][account_id]["holdings"] += holding_count
+            # Holdings are a point-in-time snapshot (not range-based), so replace
+            # rather than accumulate when a sync spans multiple date ranges.
+            account_stats = stats["accounts"][account_id]
+            stats["total_holdings"] += holding_count - account_stats["holdings"]
+            account_stats["holdings"] = holding_count
             stats["total_transactions"] += new_txns
             stats["total_updates"] += updated_txns
-            stats["total_holdings"] += holding_count
 
     if total_txns > 0 or total_updates > 0:
         logger.info(
@@ -742,15 +745,54 @@ def process_transactions(db: Session, transactions: list[dict], account_id: str)
 
 
 def process_holdings(db: Session, holdings: list[dict], account_id: str) -> int:
-    cnt = 0
+    """Create new holdings, refresh existing ones, and remove superseded ones.
+
+    The feed's list is authoritative for this account: stored holdings whose id
+    is no longer reported are deleted (SimpleFIN sometimes re-issues holding ids).
+    An empty list is treated as suspicious and existing holdings are kept.
+    Holdings with incomplete data are logged and skipped (but not deleted) so one
+    bad record can't fail the whole sync. Returns the number of holdings processed.
+    """
+    remove_superseded_holdings(db, account_id, {h.get("id") for h in holdings})
+
+    processed = 0
     for holding in holdings:
         holding["account_id"] = account_id
-        holding_id = holding["id"]
-        if not db.get(Holding, holding_id):
+        try:
             data = HoldingCreate(**holding)
+        except ValidationError as e:
+            logger.warning(f"Skipping holding {holding.get('id')} with invalid data: {e}")
+            continue
+        processed += 1
+        existing = db.get(Holding, data.id)
+        if existing is None:
             holding_crud.create_holding(db, data)
-            cnt += 1
-    return cnt
+        else:
+            # Keep the original id/created; refresh everything SimpleFIN reports.
+            for field in data.model_dump(exclude={"id", "created"}):
+                setattr(existing, field, getattr(data, field))
+            db.commit()
+    return processed
+
+
+def remove_superseded_holdings(db: Session, account_id: str, feed_ids: set[str | None]) -> None:
+    """Delete stored holdings for the account that the feed no longer reports."""
+    stored = db.query(Holding).filter(Holding.account_id == account_id).all()
+    if not feed_ids:
+        if stored:
+            logger.warning(
+                f"SimpleFIN returned no holdings for account {account_id}; keeping "
+                f"{len(stored)} stored holding(s). Use 'Reset holdings' if it's really empty."
+            )
+        return
+    superseded = [h for h in stored if h.id not in feed_ids]
+    for holding in superseded:
+        db.delete(holding)
+    if superseded:
+        db.commit()
+        logger.info(
+            f"Removed {len(superseded)} holding(s) no longer reported for account {account_id}"
+        )
 
 
 def process_account_balance(db: Session, account_data: dict):
@@ -862,10 +904,6 @@ def classify_accounts(db: Session):
         # 4. Available balance heuristic
         if not acct_type and getattr(account, "available_balance", None) == 0:
             acct_type = "credit_card"
-
-        # 5. Fallback: use SimpleFIN `type` string
-        if not acct_type and account.type:
-            acct_type = account.type.lower()
 
         if acct_type:
             from app.models import AccountType

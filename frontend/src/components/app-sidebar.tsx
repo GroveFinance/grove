@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "./theme-provider";
 import { ModeToggle } from "./mode-toggle";
 import { GettingStarted } from "./GettingStarted";
+import { useSettings } from "@/hooks/queries/useSettings";
 import { Badge } from "@/components/ui/badge";
 import { useSystemInfo } from "@/hooks/queries/useSystemInfo";
 import { VersionUpdateDialog } from "./VersionUpdateDialog";
@@ -71,10 +72,12 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
   // Check if update should be shown (not dismissed for this version)
+  const { data: settings } = useSettings();
   const shouldShowUpdateBadge =
     systemInfo?.version.update_available &&
     systemInfo?.version.latest_version &&
-    localStorage.getItem("grove_dismissed_update") !== systemInfo.version.latest_version;
+    settings &&
+    settings.values["updates.dismissed_version"] !== systemInfo.version.latest_version;
 
   // Auto-close on route change (mobile only)
   useEffect(() => {

@@ -39,6 +39,7 @@ export interface Account {
   balance_date?: string | null;
   created_at?: string | null;
   is_hidden?: boolean;
+  holdings_count?: number;
 }
 
 

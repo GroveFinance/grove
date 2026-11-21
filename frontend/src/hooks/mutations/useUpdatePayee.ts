@@ -9,6 +9,7 @@ export function useUpdatePayee() {
       updatePayee(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payees"] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["transactions-infinite"] });
       queryClient.invalidateQueries({ queryKey: ["transactions-summary"] });

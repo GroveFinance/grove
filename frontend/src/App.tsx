@@ -15,11 +15,18 @@ import RestaurantsPage from "@/pages/trends/RestaurantsPage"
 import BudgetTrendsPage from "@/pages/trends/BudgetsPage"
 import CategoryTrendsPage from "@/pages/trends/CategoriesPage"
 import AppWrapper from "./components/appwrapper"
+import { useLegacySettingsMigration } from "@/hooks/useLegacySettingsMigration"
+
+function LegacySettingsMigration() {
+  useLegacySettingsMigration()
+  return null
+}
 
 
 export default function App() {
   return (
     <ThemeProvider defaultMode="dark" defaultTheme="grove" storageKey="vite-ui-theme">
+      <LegacySettingsMigration />
       <Router basename={import.meta.env.BASE_URL}>
         <SidebarProvider>
           <AppSidebar />

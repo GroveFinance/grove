@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
-import { fetchJSON } from "@/services/api/base";
-import type { SyncItem, Payee } from "@/types";
+import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getOnboardingStatus } from "@/services/api";
+import { useSettings, useUpdateSettings } from "@/hooks/queries/useSettings";
 
 export interface OnboardingStep {
   id: string;
@@ -16,51 +17,32 @@ interface OnboardingProgress {
   totalCount: number;
   isComplete: boolean;
   isDismissed: boolean;
+  isLoading: boolean;
   dismiss: () => void;
   restore: () => void;
   refetch: () => void;
 }
 
-const DISMISSED_KEY = "grove_onboarding_dismissed";
-export const CATEGORIES_VISITED_KEY = "grove_categories_visited";
-export const ACCOUNTS_VISITED_KEY = "grove_accounts_visited";
+export const ONBOARDING_STATUS_QUERY_KEY = ["onboarding-status"] as const;
 
 export function useOnboardingProgress(): OnboardingProgress {
-  const [syncConfig, setSyncConfig] = useState<SyncItem | null>(null);
-  const [payees, setPayees] = useState<Payee[]>([]);
-  const [isDismissed, setIsDismissed] = useState(() => {
-    return localStorage.getItem(DISMISSED_KEY) === "true";
+  const { data: settings } = useSettings();
+  const { mutate: updateSettings } = useUpdateSettings();
+
+  const isDismissed = settings?.values["onboarding.dismissed"] ?? false;
+
+  // No polling: refreshed on window focus, after syncs complete, and after
+  // payee changes (see useGlobalSyncStatus / useUpdatePayee).
+  const { data: status, refetch } = useQuery({
+    queryKey: ONBOARDING_STATUS_QUERY_KEY,
+    queryFn: getOnboardingStatus,
+    enabled: !!settings && !isDismissed,
   });
 
-  const fetchData = useCallback(async () => {
-    try {
-      // Fetch sync config
-      const sync = await fetchJSON<SyncItem>("/sync/simplefin").catch(() => null);
-      setSyncConfig(sync);
-
-      // Fetch payees (rules are payees with category_id !== 0)
-      const payeesData = await fetchJSON<Payee[]>("/payee").catch(() => []);
-      setPayees(payeesData ?? []);
-    } catch (error) {
-      console.error("Failed to fetch onboarding data:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-
-    // Poll every 5 seconds to pick up sync completion
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  const hasSyncConfig = syncConfig !== null && syncConfig.last_sync !== null;
-  // Categories step is complete once user has visited the categories page
-  const hasCategoriesVisited = localStorage.getItem(CATEGORIES_VISITED_KEY) === "true";
-  // Accounts step is complete once user has visited the accounts page
-  const hasAccountsVisited = localStorage.getItem(ACCOUNTS_VISITED_KEY) === "true";
-
-  const hasRules = payees.some((payee) => payee.category_id !== 0);
+  const hasSynced = status?.has_synced ?? false;
+  const hasRules = status?.has_rules ?? false;
+  const hasAccountsVisited = settings?.values["onboarding.visited.accounts"] ?? false;
+  const hasCategoriesVisited = settings?.values["onboarding.visited.categories"] ?? false;
 
   const steps: OnboardingStep[] = [
     {
@@ -68,7 +50,7 @@ export function useOnboardingProgress(): OnboardingProgress {
       title: "Connect SimpleFIN",
       description: "Set up sync and import your accounts",
       href: "/settings/sync",
-      completed: hasSyncConfig,
+      completed: hasSynced,
     },
     {
       id: "accounts",
@@ -96,32 +78,36 @@ export function useOnboardingProgress(): OnboardingProgress {
       title: "View Your Overview",
       description: "See your financial snapshot",
       href: "/",
-      completed: hasSyncConfig && hasCategoriesVisited, // Complete when basic setup is done
+      completed: hasSynced && hasCategoriesVisited, // Complete when basic setup is done
     },
   ];
 
   const completedCount = steps.filter((step) => step.completed).length;
   const totalCount = steps.length;
-  const isComplete = completedCount === totalCount;
-
-  const dismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, "true");
-    setIsDismissed(true);
-  };
-
-  const restore = () => {
-    localStorage.removeItem(DISMISSED_KEY);
-    setIsDismissed(false);
-  };
 
   return {
     steps,
     completedCount,
     totalCount,
-    isComplete,
+    isComplete: completedCount === totalCount,
     isDismissed,
-    dismiss,
-    restore,
-    refetch: fetchData,
+    isLoading: !settings || (!isDismissed && !status),
+    dismiss: () => updateSettings({ "onboarding.dismissed": true }),
+    restore: () => updateSettings({ "onboarding.dismissed": false }),
+    refetch: () => void refetch(),
   };
+}
+
+/** Mark an onboarding page as visited (once settings have loaded). */
+export function useMarkOnboardingVisited(page: "accounts" | "categories"): void {
+  const { data: settings } = useSettings();
+  const { mutate: updateSettings } = useUpdateSettings();
+  const sent = useRef(false);
+  const key = page === "accounts" ? "onboarding.visited.accounts" : "onboarding.visited.categories";
+
+  useEffect(() => {
+    if (!settings || sent.current || settings.values[key]) return;
+    sent.current = true;
+    updateSettings({ [key]: true });
+  }, [settings, key, updateSettings]);
 }

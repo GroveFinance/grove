@@ -1,8 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from "react"
-
-type Mode = "dark" | "light" | "system"
-type ThemeName = "grove" | "ocean" | "sunset" | "forest" | "slate"
+import { useSettings, useUpdateSettings } from "@/hooks/queries/useSettings"
+import type { ThemeMode as Mode, ThemeName } from "@/types"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -46,6 +45,26 @@ export function ThemeProvider({
     () => (localStorage.getItem(`${storageKey}-name`) as ThemeName) || defaultTheme
   )
 
+  // Server settings are the source of truth; localStorage is only a cache so the
+  // first paint has the right theme. Only apply keys the server has explicitly
+  // stored, so a not-yet-migrated local value isn't overwritten by the default.
+  const { data: settings } = useSettings()
+  const { mutate: updateSettings } = useUpdateSettings()
+
+  useEffect(() => {
+    if (!settings) return
+    if (settings.explicit.includes("theme.mode")) {
+      const serverMode = settings.values["theme.mode"]
+      localStorage.setItem(`${storageKey}-mode`, serverMode)
+      setMode(serverMode)
+    }
+    if (settings.explicit.includes("theme.name")) {
+      const serverName = settings.values["theme.name"]
+      localStorage.setItem(`${storageKey}-name`, serverName)
+      setThemeName(serverName)
+    }
+  }, [settings, storageKey])
+
   useEffect(() => {
     const root = window.document.documentElement
 
@@ -69,22 +88,23 @@ export function ThemeProvider({
     root.classList.add(mode)
   }, [mode, themeName])
 
+  const changeMode = (newMode: Mode) => {
+    localStorage.setItem(`${storageKey}-mode`, newMode)
+    setMode(newMode)
+    updateSettings({ "theme.mode": newMode })
+  }
+
   const value = {
     mode,
     themeName,
     theme: mode, // Legacy compatibility
-    setMode: (newMode: Mode) => {
-      localStorage.setItem(`${storageKey}-mode`, newMode)
-      setMode(newMode)
-    },
+    setMode: changeMode,
     setThemeName: (newTheme: ThemeName) => {
       localStorage.setItem(`${storageKey}-name`, newTheme)
       setThemeName(newTheme)
+      updateSettings({ "theme.name": newTheme })
     },
-    setTheme: (newMode: Mode) => { // Legacy compatibility
-      localStorage.setItem(`${storageKey}-mode`, newMode)
-      setMode(newMode)
-    },
+    setTheme: changeMode, // Legacy compatibility
   }
 
   return (

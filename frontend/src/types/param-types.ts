@@ -14,7 +14,6 @@ export interface GetTransactionsParams {
   sort_by?: "transacted_at" | "posted" | "amount"
   sort_order?: "asc" | "desc"
   skip_transfers?: boolean
-  split_mode?: boolean
   account_types?: string[]
   exclude_account_types?: string[]
 }
@@ -57,7 +56,6 @@ export interface UseTransactionsParams {
   sort_by?: "transacted_at" | "posted" | "amount"
   sort_order?: "asc" | "desc"
   skip_transfers?: boolean
-  split_mode?: boolean
   account_types?: string[]
   exclude_account_types?: string[]
 }

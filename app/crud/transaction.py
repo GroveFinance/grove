@@ -130,7 +130,6 @@ def get_transactions(
     sort_by: str = "transacted_at",
     sort_order: str = "desc",
     skip_transfers: bool = False,
-    split_mode: bool = False,
     account_types: list[str] | None = None,
     exclude_account_types: list[str] | None = None,
     include_hidden: bool = False,
@@ -218,17 +217,6 @@ def get_transactions(
     sort_column = getattr(models.Transaction, sort_by, models.Transaction.transacted_at)
     sort_func = sort_column.desc() if sort_order.lower() == "desc" else sort_column.asc()
     query = query.order_by(sort_func)
-
-    if split_mode:
-        # Fetch top splits directly instead of whole transactions
-        subq = (
-            db.query(models.TransactionSplit)
-            .join(models.Transaction)
-            .filter(models.TransactionSplit.amount < 0)
-            .order_by(func.abs(models.TransactionSplit.amount).desc())
-            .limit(limit)
-        )
-        return subq.all()
 
     return query.offset(skip).limit(limit).all()
 

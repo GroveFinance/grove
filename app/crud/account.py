@@ -2,7 +2,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from app import models
@@ -148,7 +148,7 @@ def _get_latest_balance(db: Session, account_id: str):
     latest = (
         db.query(AccountBalance)
         .filter(AccountBalance.account_id == account_id)
-        .order_by(desc(AccountBalance.balance_date))
+        .order_by(AccountBalance.balance_date.desc())
         .first()
     )
     if latest:
@@ -215,7 +215,7 @@ def find_duplicate_accounts(
             older_transactions = (
                 db.query(Transaction)
                 .filter(Transaction.account_id == older_account.id)
-                .order_by(desc(Transaction.posted))
+                .order_by(Transaction.posted.desc())
                 .limit(transaction_sample_size)
                 .all()
             )
@@ -342,7 +342,7 @@ def find_duplicate_accounts(
                     older_txns = (
                         db.query(Transaction)
                         .filter(Transaction.account_id == older.id)
-                        .order_by(desc(Transaction.posted))
+                        .order_by(Transaction.posted.desc())
                         .limit(transaction_sample_size)
                         .all()
                     )
@@ -591,6 +591,12 @@ def get_account_details(
         .subquery("latest_balance_date")
     )
 
+    holdings_count_subq = (
+        select(Holding.account_id, func.count(Holding.id).label("holdings_count"))
+        .group_by(Holding.account_id)
+        .subquery("holdings_count")
+    )
+
     # 2. Join the AccountBalance table with the subquery to get the full latest balance record.
     # We use an aliased AccountBalance for clarity.
     latest_balance = aliased(AccountBalance, name="latest_balance")
@@ -609,8 +615,10 @@ def get_account_details(
             latest_balance.balance_date,
             Account.created_at,
             Account.is_hidden,
+            func.coalesce(holdings_count_subq.c.holdings_count, 0).label("holdings_count"),
         )
         .join(Org, Org.id == Account.org_id)
+        .outerjoin(holdings_count_subq, Account.id == holdings_count_subq.c.account_id)
         # Outer join to the latest_balance_date subquery to link to the correct date
         .outerjoin(
             latest_balance_date_subq,
@@ -653,6 +661,7 @@ def get_account_details(
             balance_date=r.balance_date,
             created_at=r.created_at,
             is_hidden=r.is_hidden if hasattr(r, "is_hidden") else False,
+            holdings_count=r.holdings_count,
         )
         for r in results
     ]

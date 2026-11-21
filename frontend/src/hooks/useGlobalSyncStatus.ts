@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLatestSyncRun, triggerSync } from "@/services/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 /**
  * Global hook for tracking sync status across the entire app.
@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 export function useGlobalSyncStatus() {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
+  const wasRunning = useRef(false);
 
   // Fetch latest sync run
   const { data: latestRun, refetch } = useQuery({
@@ -30,10 +31,15 @@ export function useGlobalSyncStatus() {
   // Update local syncing state based on latest run status
   useEffect(() => {
     if (latestRun?.status === "running") {
+      wasRunning.current = true;
       setIsSyncing(true);
     } else if (latestRun) {
       // If we have a run and it's not "running", it must be completed or failed
       setIsSyncing(false);
+      if (wasRunning.current) {
+        wasRunning.current = false;
+        queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestRun?.status]);

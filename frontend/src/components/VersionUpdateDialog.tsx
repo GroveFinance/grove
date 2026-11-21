@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { VersionInfo } from "@/services/api/system";
+import { useUpdateSettings } from "@/hooks/queries/useSettings";
 
 interface VersionUpdateDialogProps {
   open: boolean;
@@ -26,12 +27,11 @@ export function VersionUpdateDialog({
     }
   };
 
+  const { mutate: updateSettings } = useUpdateSettings();
+
   const handleDismiss = () => {
-    // Store dismissal in localStorage with version number
-    localStorage.setItem(
-      "grove_dismissed_update",
-      versionInfo.latest_version || ""
-    );
+    // Remember the dismissed version server-side so it applies on every device
+    updateSettings({ "updates.dismissed_version": versionInfo.latest_version ?? null });
     onOpenChange(false);
   };
 
