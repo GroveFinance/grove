@@ -243,6 +243,7 @@ class AccountDetailsOut(BaseModel):
     balance_date: datetime | None = None
     created_at: datetime | None = None
     is_hidden: bool | None = Field(False, description="Whether this account is hidden from views")
+    holdings_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 

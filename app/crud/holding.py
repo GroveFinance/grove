@@ -54,6 +54,13 @@ def update_holding(db: Session, id: str, data: HoldingUpdate) -> Holding | None:
     return obj
 
 
+def delete_holdings_for_account(db: Session, account_id: str) -> int:
+    """Delete all holdings for an account. Returns the number deleted."""
+    deleted = db.query(Holding).filter(Holding.account_id == account_id).delete()
+    db.commit()
+    return deleted
+
+
 def delete_holding(db: Session, id: str) -> bool:
     obj = get_holding(db, id)
     if not obj:
