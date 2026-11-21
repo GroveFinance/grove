@@ -31,6 +31,12 @@ export async function deleteAccount(accountId: string): Promise<Account> {
   });
 }
 
+export async function resetAccountHoldings(accountId: string): Promise<{ deleted: number }> {
+  return fetchJSON<{ deleted: number }>(`/account/${accountId}/reset-holdings`, {
+    method: "POST",
+  });
+}
+
 // Account from duplicate endpoint uses "account_id" and includes balance
 export interface DuplicateAccount {
   account_id: string;

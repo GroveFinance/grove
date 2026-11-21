@@ -618,3 +618,11 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   await delay();
   return { has_synced: true, has_rules: store.getData().payees.some((p) => p.category_id !== 0) };
 }
+
+export async function resetAccountHoldings(accountId: string): Promise<{ deleted: number }> {
+  await delay();
+  const data = store.getData();
+  const before = data.holdings.length;
+  data.holdings = data.holdings.filter((h) => h.account_id !== accountId);
+  return { deleted: before - data.holdings.length };
+}

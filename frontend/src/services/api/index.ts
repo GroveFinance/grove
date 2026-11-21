@@ -25,6 +25,7 @@ export const updateAccount = USE_MOCK ? mockAPI.updateAccount : realAccounts.upd
 export const deleteAccount = USE_MOCK ? mockAPI.deleteAccount : realAccounts.deleteAccount;
 export const getDuplicateAccounts = USE_MOCK ? mockAPI.getDuplicateAccounts : realAccounts.getDuplicateAccounts;
 export const mergeAccounts = USE_MOCK ? mockAPI.mergeAccounts : realAccounts.mergeAccounts;
+export const resetAccountHoldings = USE_MOCK ? mockAPI.resetAccountHoldings : realAccounts.resetAccountHoldings;
 
 export const getTransactions = USE_MOCK ? mockAPI.getTransactions : realTransactions.getTransactions;
 export const updateTransaction = USE_MOCK ? mockAPI.updateTransaction : realTransactions.updateTransaction;

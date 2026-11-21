@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useAccounts } from "@/hooks/queries/useAccounts"
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
-import { updateAccount, deleteAccount, getDuplicateAccounts, mergeAccounts } from "@/services/api"
+import { updateAccount, deleteAccount, getDuplicateAccounts, mergeAccounts, resetAccountHoldings } from "@/services/api"
 import type { DuplicateGroup, DuplicateAccount } from "@/services/api/accounts"
 import type { Account, AccountType } from "@/types"
 import { ACCOUNT_TYPE_OPTIONS } from "@/types/api-types"
@@ -25,6 +25,7 @@ export default function AccountSettingsPage() {
   })
   const queryClient = useQueryClient()
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [resetConfirm, setResetConfirm] = useState<Account | null>(null)
   const [mergeConfirm, setMergeConfirm] = useState<{ source: string; target: string; group: DuplicateGroup } | null>(null)
   const [dismissedGroups, setDismissedGroups] = useState<Set<string>>(new Set())
 
@@ -43,6 +44,15 @@ export default function AccountSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["accounts"] })
       queryClient.invalidateQueries({ queryKey: ["account-duplicates"] })
       setDeleteConfirm(null)
+    },
+  })
+
+  const resetHoldingsMutation = useMutation({
+    mutationFn: resetAccountHoldings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["holdings"] })
+      setResetConfirm(null)
     },
   })
 
@@ -292,14 +302,27 @@ export default function AccountSettingsPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(acct.account_id)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      🗑️ Delete
-                    </Button>
+                    <div className="flex gap-1">
+                      {!!acct.holdings_count && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setResetConfirm(acct)}
+                          disabled={resetHoldingsMutation.isPending}
+                          title={`Remove this account's ${acct.holdings_count} holding(s); the next sync re-adds current ones`}
+                        >
+                          ↺ Reset holdings
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(acct.account_id)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        🗑️ Delete
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               )
@@ -322,6 +345,33 @@ export default function AccountSettingsPage() {
               </Button>
               <Button variant="destructive" onClick={confirmDelete}>
                 Delete Account
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Holdings Confirmation Dialog */}
+      {resetConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Reset Holdings?</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              This removes the {resetConfirm.holdings_count} holding(s) stored for{" "}
+              <strong>{resetConfirm.alt_name || resetConfirm.name}</strong>. The next sync re-adds
+              whatever SimpleFIN still reports, so use this when holdings are stale or the account
+              has been emptied. Transactions and balances are not affected.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setResetConfirm(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => resetHoldingsMutation.mutate(resetConfirm.account_id)}
+                disabled={resetHoldingsMutation.isPending}
+              >
+                Reset Holdings
               </Button>
             </div>
           </div>
