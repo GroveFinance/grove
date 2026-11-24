@@ -229,7 +229,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter>
-        <ModeToggle />
         {systemInfo?.version.current_version && (
           <div
             className="px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden"
@@ -238,6 +237,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             Grove {formatVersion(systemInfo.version.current_version)}
           </div>
         )}
+        <ModeToggle />
       </SidebarFooter>
 
       <SidebarRail />
