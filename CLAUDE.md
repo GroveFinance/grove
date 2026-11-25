@@ -180,6 +180,23 @@ User preferences (theme, Getting Started progress/dismissal, dismissed update ve
 - **Frontend**: `useSettings()` / `useUpdateSettings()` in `frontend/src/hooks/queries/useSettings.ts` (optimistic updates). The theme keeps a localStorage cache only to avoid a flash on load
 - **Adding a setting**: add it to `SETTINGS_REGISTRY`, to `SettingsValues` + `DEFAULT_SETTINGS` in `frontend/src/types/settings.ts`
 
+### Security
+
+Grove has **no authentication by design** (single user, private network), so the app
+must stop *other websites* from using the user's browser against it, and must never
+hand out secrets. Rules for new code:
+
+- **No CORS.** The SPA and API are always same-origin. Don't add `CORSMiddleware`.
+- **`ALLOWED_HOSTS`** (env, comma-separated, default `localhost,127.0.0.1`) drives
+  `TrustedHostMiddleware` (DNS-rebinding protection). Each deployment sets its own domain.
+- **Cross-site guard** (`app/security.py`): POST/PUT/PATCH/DELETE from another site
+  (`Sec-Fetch-Site`/`Origin`) get 403. Never perform state changes in GET handlers.
+- **Secrets never leave the server.** `SyncConfigOut` exposes `has_credentials`, not the
+  config. Clients may only send a SimpleFIN `setup_token`.
+- **Outbound requests** only via allow-listed https hosts with timeouts and no redirects
+  (`validate_simplefin_url`, `SIMPLEFIN_ALLOWED_HOSTS`). Never fetch a client-supplied URL.
+- **File serving** (`app/frontend.py`) must keep paths inside `dist`.
+
 ### Frontend Structure
 
 - **src/App.tsx**: Main router and layout configuration
@@ -313,8 +330,8 @@ DUPLICATE_DETECTION_MIN_MATCH_RATIO=0.8
 ## Important Notes
 
 - **Migrations run automatically** on app startup via `app/main.py`
-- **CORS is wide open** (`allow_origins=["*"]`) - only suitable for local development
-- **Database echo is enabled** (`echo=True` in `app/db.py`) - disable for production
+- **No CORS, Host allow-list, cross-site guard** — see Security above
+- **Database echo is disabled** (`echo=False` in `app/db.py`)
 - Frontend base path configuration can be found in vite.config.ts
 - **Category ID 0** is reserved for uncategorized transactions
 - The sync scheduler starts on application startup and runs jobs based on cron schedules in SyncConfig

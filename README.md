@@ -52,7 +52,20 @@ Im just a squirrel trying to keep track of my nuts. I was a mildly happy user of
 
 2. **Configure Environment Variables**
 
-   Really you should just set the POSTGRES_PASSWORD in a .env or in the docker-compose.yml directly. The rest of the defaults are probably fine for most users.
+   Create a `.env` next to `docker-compose.yaml`:
+
+   ```bash
+   POSTGRES_PASSWORD=choose-a-strong-password
+   # Every host name or IP you use to open Grove, comma-separated.
+   # Requests for any other host are rejected (default: localhost only).
+   ALLOWED_HOSTS=grove.example.com,192.168.1.10
+   ```
+
+   Grove has no login. Run it on a private network (or behind your own
+   authentication) — it is not meant to be exposed to the internet.
+
+   Optional: `SIMPLEFIN_ALLOWED_HOSTS` (default `bridge.simplefin.org,beta-bridge.simplefin.org`)
+   limits which SimpleFIN servers Grove will contact.
 
 3. **Start Grove**
    ```bash
