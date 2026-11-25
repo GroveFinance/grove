@@ -5,11 +5,12 @@ import os
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from urllib3.util import parse_url
 
 from app import models
 from app.crud import account as account_crud
@@ -50,18 +51,38 @@ def _allowed_simplefin_hosts() -> set[str]:
     return {h.strip().lower() for h in raw.split(",") if h.strip()}
 
 
-def validate_simplefin_url(url: str) -> None:
-    """Raise ValueError unless url is https on an allow-listed SimpleFIN host."""
-    parts = urlsplit(url)
+def validate_simplefin_url(url: str) -> str:
+    """Return a canonical https URL on an allow-listed SimpleFIN host, else raise ValueError.
+
+    Always send the *returned* URL, never the input: it is rebuilt from parsed parts
+    (no userinfo, default port), and both urllib's and urllib3's (requests') parsers
+    must agree on the host, closing parser-differential tricks like "evil\\@good".
+    """
+    if any(c == "\\" or c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url):
+        raise ValueError("Refusing to contact SimpleFIN URL with unsafe characters")
+    try:
+        parts = urlsplit(url)
+        parsed = parse_url(url)
+        port = parts.port
+    except ValueError as e:
+        raise ValueError("Refusing to contact malformed SimpleFIN URL") from e
     host = (parts.hostname or "").lower()
-    if parts.scheme != "https" or host not in _allowed_simplefin_hosts():
+    urllib3_host = (parsed.host or "").lower()
+    if (
+        parts.scheme != "https"
+        or host != urllib3_host
+        or host not in _allowed_simplefin_hosts()
+        or port not in (None, 443)
+        or parsed.port not in (None, 443)
+    ):
         raise ValueError(f"Refusing to contact non-SimpleFIN URL (host: {host or 'none'})")
+    return urlunsplit(("https", host, parts.path, parts.query, ""))
 
 
 def _simplefin_get(cfg: dict, params: dict) -> requests.Response:
-    validate_simplefin_url(cfg["endpoint"])
+    url = validate_simplefin_url(cfg["endpoint"])
     response = requests.get(
-        cfg["endpoint"],
+        url,
         auth=(cfg["username"], base64.b64decode(cfg["password"]).decode()),
         params=params,
         timeout=REQUEST_TIMEOUT,
@@ -167,17 +188,18 @@ def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
 
     try:
         logger.info(f"Retrieving credentials for {config.name}")
-        claim_url = base64.b64decode(token).decode("utf-8")
-        validate_simplefin_url(claim_url)
+        claim_url = validate_simplefin_url(base64.b64decode(token).decode("utf-8"))
         response = requests.post(claim_url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
         response.raise_for_status()
         access_url = response.text.strip()
-        validate_simplefin_url(access_url)
 
-        scheme, rest = access_url.split("//", 1)
-        auth, rest = rest.split("@", 1)
-        username, password = auth.split(":", 1)
-        endpoint = f"{scheme}//{rest}/accounts"
+        # Access URL format: https://<user>:<pass>@<host>/<path>
+        base_url = validate_simplefin_url(access_url)
+        access_parts = urlsplit(access_url)
+        username, password = access_parts.username, access_parts.password
+        if not username or not password:
+            raise ValueError("SimpleFIN access URL is missing credentials")
+        endpoint = f"{base_url.rstrip('/')}/accounts"
 
         cfg["username"] = username
         cfg["password"] = base64.b64encode(password.encode()).decode()
