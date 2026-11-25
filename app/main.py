@@ -54,25 +54,9 @@ app.include_router(api_router)
 if os.getenv("ENV") == "production":
     from pathlib import Path
 
-    from fastapi.responses import FileResponse
-    from fastapi.staticfiles import StaticFiles
+    from app.frontend import mount_frontend
 
-    # Mount static files
-    app.mount("/assets", StaticFiles(directory="/app/frontend/dist/assets"), name="assets")
-
-    # Serve index.html for all other routes (SPA routing)
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if full_path.startswith("api/"):
-            return {"error": "Not found"}
-
-        # Check if file exists in dist directory (for root-level assets like logos)
-        file_path = Path(f"/app/frontend/dist/{full_path}")
-        if file_path.is_file():
-            return FileResponse(file_path)
-
-        # Default to SPA index.html
-        return FileResponse("/app/frontend/dist/index.html")
+    mount_frontend(app, Path("/app/frontend/dist"))
 
 
 def run_migrations():
