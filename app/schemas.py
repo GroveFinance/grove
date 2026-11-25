@@ -2,7 +2,15 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 try:
     import iso18245
@@ -70,8 +78,27 @@ class SyncConfigBase(BaseModel):
     errors: str | None = Field(None, description="Any errors encountered during the last sync")
 
 
+# Clients may only provide a setup token; the server claims and stores the
+# credentials itself and never returns them (prevents credential theft and SSRF
+# via a client-chosen endpoint).
+CLIENT_CONFIG_KEYS = {"setup_token"}
+
+
+def _check_client_config(config: dict[str, Any] | None) -> dict[str, Any] | None:
+    if config is not None:
+        extra = set(config) - CLIENT_CONFIG_KEYS
+        if extra:
+            raise ValueError(
+                f"Unsupported config keys: {sorted(extra)}; only setup_token is accepted"
+            )
+    return config
+
+
 class SyncConfigCreate(SyncConfigBase):
-    pass
+    @field_validator("config")
+    @classmethod
+    def only_setup_token(cls, v: dict[str, Any]) -> dict[str, Any]:
+        return _check_client_config(v) or {}
 
 
 class SyncConfigUpdate(BaseModel):
@@ -82,11 +109,45 @@ class SyncConfigUpdate(BaseModel):
     last_sync: datetime | None = None
     errors: str | None = None
 
+    @field_validator("config")
+    @classmethod
+    def only_setup_token(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        return _check_client_config(v)
 
-class SyncConfigOut(SyncConfigBase):
+
+class SyncConfigOut(BaseModel):
+    """Sync config as returned to clients: credentials are never included."""
+
     id: int
+    name: str | None = None
+    provider_name: str
+    active: bool | None = True
+    schedule: str | None = None
+    last_sync: datetime | None = None
+    errors: str | None = None
+    has_credentials: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def derive_has_credentials(cls, data: Any) -> Any:
+        config = data.get("config") if isinstance(data, dict) else getattr(data, "config", None)
+        has_creds = isinstance(config, dict) and all(
+            config.get(k) for k in ("username", "password", "endpoint")
+        )
+        if isinstance(data, dict):
+            return {**data, "has_credentials": has_creds}
+        return {
+            "id": data.id,
+            "name": data.name,
+            "provider_name": data.provider_name,
+            "active": data.active,
+            "schedule": data.schedule,
+            "last_sync": data.last_sync,
+            "errors": data.errors,
+            "has_credentials": has_creds,
+        }
 
 
 # ===== Sync Run =====

@@ -30,7 +30,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-grove}
       POSTGRES_DB: ${POSTGRES_DB:-grove}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      # Localhost only: the app reaches Postgres over the Docker network.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
@@ -59,6 +60,8 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-grove}:${POSTGRES_PASSWORD:-grove}@db:5432/${POSTGRES_DB:-grove}
       - LOG_LEVEL=${LOG_LEVEL:-debug}
       - SIMPLEFIN_INITIAL_SYNC_MONTHS=${SIMPLEFIN_INITIAL_SYNC_MONTHS:-12}
+      # Host names this instance answers to (comma-separated), e.g. grove-dev.example.com
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
     ports:
       - "${WEB_PORT:-8000}:8000"
     depends_on:

@@ -18,4 +18,5 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@grove-dev_db:5432/budget-prod
       - ENV=production
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
     restart: unless-stopped

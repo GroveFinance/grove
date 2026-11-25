@@ -40,6 +40,7 @@ export async function triggerSyncFromDate(name = "simplefin", daysBack = 30, cap
     from_date: string;
     days_back: number;
     capture_raw: boolean;
+    download_token: string | null;
   }>(`/sync/${encodeURIComponent(name)}/trigger-from-date?days_back=${daysBack}&capture_raw=${captureRaw}`, {
     method: "POST",
   });
@@ -60,9 +61,9 @@ export async function getSyncRuns(name = "simplefin", limit = 10) {
   return await fetchJSON<SyncRun[]>(`/sync/${encodeURIComponent(name)}/runs?limit=${limit}`);
 }
 
-export async function downloadRawResponse(runId: number): Promise<Blob> {
+export async function downloadRawResponse(runId: number, token: string): Promise<Blob> {
   const response = await fetch(
-    `/api/sync/runs/${runId}/raw-response`,
+    `/api/sync/runs/${runId}/raw-response?token=${encodeURIComponent(token)}`,
     {
       method: "GET",
       headers: {

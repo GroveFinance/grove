@@ -5,10 +5,12 @@ import os
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from urllib3.util import parse_url
 
 from app import models
 from app.crud import account as account_crud
@@ -25,7 +27,6 @@ from app.schemas import (
     HoldingCreate,
     OrgCreate,
     OrgUpdate,
-    SyncConfigUpdate,
 )
 
 # Max months to sync backwards during initial sync
@@ -37,6 +38,58 @@ if INITIAL_SYNC_MAX_MONTHS_STR:
     INITIAL_SYNC_MAX_MONTHS = int(INITIAL_SYNC_MAX_MONTHS_STR)
 else:
     INITIAL_SYNC_MAX_MONTHS = None  # No limit, walk back until 2 empty months
+
+
+# The server only ever talks to SimpleFIN: https, allow-listed hosts, bounded
+# waits, no redirects. Prevents SSRF via a crafted setup token or endpoint.
+DEFAULT_SIMPLEFIN_HOSTS = "bridge.simplefin.org,beta-bridge.simplefin.org"
+REQUEST_TIMEOUT = (5, 30)  # (connect, read) seconds
+
+
+def _allowed_simplefin_hosts() -> set[str]:
+    raw = os.getenv("SIMPLEFIN_ALLOWED_HOSTS") or DEFAULT_SIMPLEFIN_HOSTS
+    return {h.strip().lower() for h in raw.split(",") if h.strip()}
+
+
+def validate_simplefin_url(url: str) -> str:
+    """Return a canonical https URL on an allow-listed SimpleFIN host, else raise ValueError.
+
+    Always send the *returned* URL, never the input: it is rebuilt from parsed parts
+    (no userinfo, default port), and both urllib's and urllib3's (requests') parsers
+    must agree on the host, closing parser-differential tricks like "evil\\@good".
+    """
+    if any(c == "\\" or c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url):
+        raise ValueError("Refusing to contact SimpleFIN URL with unsafe characters")
+    try:
+        parts = urlsplit(url)
+        parsed = parse_url(url)
+        port = parts.port
+    except ValueError as e:
+        raise ValueError("Refusing to contact malformed SimpleFIN URL") from e
+    host = (parts.hostname or "").lower()
+    urllib3_host = (parsed.host or "").lower()
+    if (
+        parts.scheme != "https"
+        or host != urllib3_host
+        or host not in _allowed_simplefin_hosts()
+        or port not in (None, 443)
+        or parsed.port not in (None, 443)
+    ):
+        raise ValueError(f"Refusing to contact non-SimpleFIN URL (host: {host or 'none'})")
+    return urlunsplit(("https", host, parts.path, parts.query, ""))
+
+
+def _simplefin_get(cfg: dict, params: dict) -> requests.Response:
+    url = validate_simplefin_url(cfg["endpoint"])
+    response = requests.get(
+        url,
+        auth=(cfg["username"], base64.b64decode(cfg["password"]).decode()),
+        params=params,
+        timeout=REQUEST_TIMEOUT,
+        allow_redirects=False,
+    )
+    response.raise_for_status()
+    return response
 
 
 def _find_category_by_name(db: Session, category_names: list[str]) -> int | None:
@@ -121,7 +174,6 @@ def _suggest_category_for_loan_transaction(
 def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
     # todo: maybe make this better
     # keep inside to prevent circular dependency
-    from app.crud.sync_config import update_sync_config
 
     cfg = config.config
     if all(cfg.get(k) for k in ("username", "password", "endpoint")):
@@ -136,30 +188,33 @@ def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
 
     try:
         logger.info(f"Retrieving credentials for {config.name}")
-        claim_url = base64.b64decode(token).decode("utf-8")
-        response = requests.post(claim_url)
+        claim_url = validate_simplefin_url(base64.b64decode(token).decode("utf-8"))
+        response = requests.post(claim_url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
         response.raise_for_status()
-        access_url = response.text
+        access_url = response.text.strip()
 
-        scheme, rest = access_url.split("//", 1)
-        auth, rest = rest.split("@", 1)
-        username, password = auth.split(":", 1)
-        endpoint = f"{scheme}//{rest}/accounts"
+        # Access URL format: https://<user>:<pass>@<host>/<path>
+        base_url = validate_simplefin_url(access_url)
+        access_parts = urlsplit(access_url)
+        username, password = access_parts.username, access_parts.password
+        if not username or not password:
+            raise ValueError("SimpleFIN access URL is missing credentials")
+        endpoint = f"{base_url.rstrip('/')}/accounts"
 
         cfg["username"] = username
         cfg["password"] = base64.b64encode(password.encode()).decode()
         cfg["endpoint"] = endpoint
         logger.info(f"Successfully retrieved credentials for {config.name}")
 
+        # Persist server-side (not via the client schema, which only accepts a token).
         # Use a separate session to persist credentials
         with SessionLocal() as local_db:
-            updated_config = update_sync_config(
-                local_db,
-                int(config.id),
-                SyncConfigUpdate(config=cfg),  # type: ignore[arg-type]
-            )
-            if updated_config:
-                config = updated_config
+            stored = local_db.get(SyncConfig, config.id)
+            if stored is not None:
+                stored.config = dict(cfg)
+                local_db.commit()
+                local_db.refresh(stored)
+                config = stored
 
         return config
     except Exception as e:
@@ -332,12 +387,7 @@ def handle_new_account(cfg: dict, db: Session, account_id: str, already_synced_f
             "end-date": int(end.timestamp()),
         }
 
-        response = requests.get(
-            cfg["endpoint"],
-            auth=(cfg["username"], base64.b64decode(cfg["password"]).decode()),
-            params=params,
-        )
-        response.raise_for_status()
+        response = _simplefin_get(cfg, params)
         data = response.json()
 
         # Find our account in the response
@@ -424,12 +474,7 @@ def process_sync_range(
         "end-date": int(end.timestamp()),
     }
 
-    response = requests.get(
-        cfg["endpoint"],
-        auth=(cfg["username"], base64.b64decode(cfg["password"]).decode()),
-        params=params,
-    )
-    response.raise_for_status()
+    response = _simplefin_get(cfg, params)
 
     # Capture raw JSON before parsing if requested
     if capture_raw and sync_run_id:

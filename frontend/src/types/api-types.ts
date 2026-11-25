@@ -182,7 +182,7 @@ export interface TransactionSplit {
 export interface SyncItem {
   name?: string;
   provider_name?: string;
-  config?: Record<string, unknown>;
+  has_credentials?: boolean; // credentials are never returned by the API
   active?: boolean;
   schedule?: string | null;
   last_sync?: string | null;

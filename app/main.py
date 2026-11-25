@@ -4,12 +4,11 @@ from contextlib import asynccontextmanager
 
 from alembic.config import Config
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from alembic import command
 from app.api import router as api_router
 from app.logger import logger
+from app.security import add_security_middleware, parse_allowed_hosts
 from app.seed import seed_initial_categories
 from app.sync.manager import init_sync_scheduler
 
@@ -35,17 +34,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Trust proxy headers for HTTPS redirects - allow all hosts
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
-
-# CORS setup (open for local dev)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS: the SPA and API are same-origin. Host allow-list + cross-site guard
+# protect a deployment that has no authentication (see app/security.py).
+add_security_middleware(app, parse_allowed_hosts(os.getenv("ALLOWED_HOSTS")))
 
 # Include API routes
 app.include_router(api_router)
