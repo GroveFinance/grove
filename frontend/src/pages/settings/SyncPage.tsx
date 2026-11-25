@@ -27,6 +27,8 @@ export default function SimplefinSettingsPage() {
   const [downloadRunId, setDownloadRunId] = useState<number | null>(null);
   // Track the run ID that existed before we triggered (so we know when a new one appears)
   const [previousRunId, setPreviousRunId] = useState<number | null>(null);
+  // One-time token returned by the capture request; required to download the raw response
+  const [downloadToken, setDownloadToken] = useState<string | null>(null);
 
   // Refresh sync settings when sync completes successfully
   useEffect(() => {
@@ -52,11 +54,12 @@ export default function SimplefinSettingsPage() {
 
     // If we have a run ID to download and it just completed
     if (downloadRunId !== null && latestRun.id === downloadRunId && latestRun.status === "completed") {
-      handleDownloadRaw(downloadRunId);
+      if (downloadToken) handleDownloadRaw(downloadRunId, downloadToken);
+      setDownloadToken(null);
       setDownloadRunId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latestRun?.status, latestRun?.id, downloadRunId, previousRunId]);
+  }, [latestRun?.status, latestRun?.id, downloadRunId, previousRunId, downloadToken]);
 
   const handleSave = async () => {
     if (!token.trim()) return;
@@ -80,7 +83,8 @@ export default function SimplefinSettingsPage() {
       setPreviousRunId(latestRun?.id ?? null);
     }
     try {
-      await triggerSyncFromDate("simplefin", daysBack, captureRaw);
+      const result = await triggerSyncFromDate("simplefin", daysBack, captureRaw);
+      setDownloadToken(result?.download_token ?? null);
       // Start polling for the new run
       setTimeout(() => refetchSyncStatus(), 1000);
     } catch (err) {
@@ -90,7 +94,7 @@ export default function SimplefinSettingsPage() {
     }
   };
 
-  const handleDownloadRaw = async (runId: number) => {
+  const handleDownloadRaw = async (runId: number, token: string) => {
     // Retry logic to handle timing issues - raw data may not be in cache immediately
     const maxRetries = 5;
     const retryDelay = 500; // ms
@@ -102,7 +106,7 @@ export default function SimplefinSettingsPage() {
           await new Promise(resolve => setTimeout(resolve, retryDelay));
         }
 
-        const blob = await downloadRawResponse(runId);
+        const blob = await downloadRawResponse(runId, token);
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;

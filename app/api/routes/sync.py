@@ -1,6 +1,7 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -138,7 +139,14 @@ def trigger_sync_from_date(
 
     from_date = datetime.now(UTC) - timedelta(days=days_back)
 
-    manager.run_sync(sync, on_schedule=False, from_date=from_date, capture_raw=capture_raw)
+    download_token = secrets.token_urlsafe(32) if capture_raw else None
+    manager.run_sync(
+        sync,
+        on_schedule=False,
+        from_date=from_date,
+        capture_raw=capture_raw,
+        download_token=download_token,
+    )
     logger.info(
         f"Triggered sync for {sync.name or sync.id} from {from_date.date()} "
         f"({days_back} days back, capture_raw={capture_raw})"
@@ -150,6 +158,8 @@ def trigger_sync_from_date(
         "from_date": from_date.isoformat(),
         "days_back": days_back,
         "capture_raw": capture_raw,
+        # Required to download the captured raw response (one-time).
+        "download_token": download_token,
     }
 
 
@@ -221,7 +231,11 @@ def get_latest_sync_run(sync_id_or_name: str, db: Session = Depends(get_db)):
         404: {"description": "Raw response not found or expired"},
     },
 )
-def download_raw_response(run_id: int, db: Session = Depends(get_db)):
+def download_raw_response(
+    run_id: int,
+    token: str = Query("", description="download_token returned by trigger-from-date"),
+    db: Session = Depends(get_db),
+):
     """
     Download the raw SimpleFin API response for a sync run.
 
@@ -236,7 +250,7 @@ def download_raw_response(run_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Sync run not found")
 
     # Retrieve from cache (this also removes it)
-    raw_json = manager.get_raw_response(run_id)
+    raw_json = manager.get_raw_response(run_id, token)
     if not raw_json:
         raise HTTPException(
             status_code=404,

@@ -576,6 +576,8 @@ export async function triggerSyncFromDate(): Promise<any> {
     sync: "simplefin",
     from_date: new Date().toISOString(),
     days_back: 30,
+    capture_raw: false,
+    download_token: null,
   };
 }
 

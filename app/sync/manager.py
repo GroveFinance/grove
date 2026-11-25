@@ -1,3 +1,4 @@
+import secrets
 import threading
 from datetime import UTC, datetime, timedelta
 
@@ -15,10 +16,19 @@ scheduler = BackgroundScheduler()
 scheduler.start()
 
 # In-memory cache for raw SimpleFin API responses
-# Structure: {sync_run_id: {"data": str, "timestamp": datetime}}
+# Structure: {sync_run_id: {"data": str, "timestamp": datetime, "token": str | None}}
+# Downloads require the one-time token returned when the capture was requested,
+# so other clients can't grab the full financial dump by guessing run ids.
 _raw_response_cache: dict[int, dict] = {}
+_download_tokens: dict[int, str] = {}
 _cache_lock = threading.Lock()
 _cache_expiry_minutes = 5
+
+
+def register_download_token(sync_run_id: int, token: str) -> None:
+    """Associate a capture's one-time download token with its sync run."""
+    with _cache_lock:
+        _download_tokens[sync_run_id] = token
 
 
 def store_raw_response(sync_run_id: int, raw_json: str):
@@ -27,19 +37,24 @@ def store_raw_response(sync_run_id: int, raw_json: str):
         _raw_response_cache[sync_run_id] = {
             "data": raw_json,
             "timestamp": datetime.now(UTC),
+            "token": _download_tokens.pop(sync_run_id, None),
         }
         # Cleanup expired entries
         _cleanup_expired_cache()
         logger.info(f"Stored raw response for sync_run {sync_run_id} ({len(raw_json)} bytes)")
 
 
-def get_raw_response(sync_run_id: int) -> str | None:
-    """Retrieve and remove raw API response from cache."""
+def get_raw_response(sync_run_id: int, token: str) -> str | None:
+    """Retrieve and remove a raw API response; requires its download token."""
     with _cache_lock:
-        entry = _raw_response_cache.pop(sync_run_id, None)
-        if entry:
-            logger.info(f"Retrieved and cleared raw response for sync_run {sync_run_id}")
-        return entry["data"] if entry else None
+        entry = _raw_response_cache.get(sync_run_id)
+        if not entry or not entry["token"] or not token:
+            return None
+        if not secrets.compare_digest(entry["token"], token):
+            return None
+        del _raw_response_cache[sync_run_id]
+        logger.info(f"Retrieved and cleared raw response for sync_run {sync_run_id}")
+        return entry["data"]
 
 
 def _cleanup_expired_cache():
@@ -65,7 +80,7 @@ def init_sync_scheduler():
         db.close()
 
 
-def _build_job(config, from_date=None, capture_raw=False):
+def _build_job(config, from_date=None, capture_raw=False, download_token=None):
     def job():
         db = SessionLocal()
         try:
@@ -85,6 +100,8 @@ def _build_job(config, from_date=None, capture_raw=False):
             db.add(sync_run)
             db.commit()
             db.refresh(sync_run)
+            if capture_raw and download_token:
+                register_download_token(sync_run.id, download_token)
 
             if config.provider_name == "simplefin":
                 run_simplefin(
@@ -118,7 +135,13 @@ def _build_job(config, from_date=None, capture_raw=False):
     return job
 
 
-def run_sync(config, on_schedule: bool = False, from_date=None, capture_raw: bool = False):
+def run_sync(
+    config,
+    on_schedule: bool = False,
+    from_date=None,
+    capture_raw: bool = False,
+    download_token: str | None = None,
+):
     """
     Run or schedule a sync job.
     - If on_schedule=True and config.schedule is set → schedule recurring job
@@ -127,7 +150,9 @@ def run_sync(config, on_schedule: bool = False, from_date=None, capture_raw: boo
     - capture_raw: If True, capture raw API response for download
     """
     job_id = f"sync:{config.id}"
-    job = _build_job(config, from_date=from_date, capture_raw=capture_raw)
+    job = _build_job(
+        config, from_date=from_date, capture_raw=capture_raw, download_token=download_token
+    )
 
     if on_schedule and config.schedule:
         scheduler.add_job(
