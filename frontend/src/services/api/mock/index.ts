@@ -514,7 +514,7 @@ const mockSyncConfig = {
   id: 1,
   name: "simplefin",
   provider_name: "simplefin",
-  config: { setup_token: "mock_token" },
+  has_credentials: true,
   schedule: "0 2 * * *",
   enabled: true,
   created_at: new Date().toISOString(),

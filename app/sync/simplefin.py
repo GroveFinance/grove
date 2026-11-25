@@ -25,7 +25,6 @@ from app.schemas import (
     HoldingCreate,
     OrgCreate,
     OrgUpdate,
-    SyncConfigUpdate,
 )
 
 # Max months to sync backwards during initial sync
@@ -121,7 +120,6 @@ def _suggest_category_for_loan_transaction(
 def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
     # todo: maybe make this better
     # keep inside to prevent circular dependency
-    from app.crud.sync_config import update_sync_config
 
     cfg = config.config
     if all(cfg.get(k) for k in ("username", "password", "endpoint")):
@@ -151,15 +149,15 @@ def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
         cfg["endpoint"] = endpoint
         logger.info(f"Successfully retrieved credentials for {config.name}")
 
+        # Persist server-side (not via the client schema, which only accepts a token).
         # Use a separate session to persist credentials
         with SessionLocal() as local_db:
-            updated_config = update_sync_config(
-                local_db,
-                int(config.id),
-                SyncConfigUpdate(config=cfg),  # type: ignore[arg-type]
-            )
-            if updated_config:
-                config = updated_config
+            stored = local_db.get(SyncConfig, config.id)
+            if stored is not None:
+                stored.config = dict(cfg)
+                local_db.commit()
+                local_db.refresh(stored)
+                config = stored
 
         return config
     except Exception as e:
