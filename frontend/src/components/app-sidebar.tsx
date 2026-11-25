@@ -18,6 +18,7 @@ import { useTheme } from "./theme-provider";
 import { ModeToggle } from "./mode-toggle";
 import { GettingStarted } from "./GettingStarted";
 import { useSettings } from "@/hooks/queries/useSettings";
+import { formatVersion } from "@/lib/version";
 import { Badge } from "@/components/ui/badge";
 import { useSystemInfo } from "@/hooks/queries/useSystemInfo";
 import { VersionUpdateDialog } from "./VersionUpdateDialog";
@@ -228,6 +229,14 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter>
+        {systemInfo?.version.current_version && (
+          <div
+            className="px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden"
+            title={`Grove ${formatVersion(systemInfo.version.current_version)} (${systemInfo.environment})`}
+          >
+            Grove {formatVersion(systemInfo.version.current_version)}
+          </div>
+        )}
         <ModeToggle />
       </SidebarFooter>
 

@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { VersionInfo } from "@/services/api/system";
 import { useUpdateSettings } from "@/hooks/queries/useSettings";
+import { formatVersion } from "@/lib/version";
 
 interface VersionUpdateDialogProps {
   open: boolean;
@@ -60,12 +61,12 @@ export function VersionUpdateDialog({
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <div className="text-muted-foreground">Current Version</div>
-              <div className="font-semibold">v{versionInfo.current_version}</div>
+              <div className="font-semibold">{formatVersion(versionInfo.current_version)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Latest Version</div>
               <div className="font-semibold text-primary">
-                v{versionInfo.latest_version}
+                {formatVersion(versionInfo.latest_version)}
               </div>
             </div>
           </div>

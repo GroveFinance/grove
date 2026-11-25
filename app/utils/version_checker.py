@@ -103,7 +103,9 @@ def get_version_info() -> dict:
     """
     Get complete version information including update availability.
     """
-    current_version = os.getenv("APP_VERSION", "dev")
+    # APP_VERSION is the git tag (e.g. "v0.3.0"); return it bare like latest_version
+    # so clients can format both the same way.
+    current_version = os.getenv("APP_VERSION", "dev").lstrip("v")
 
     # Don't check for updates in dev mode
     if current_version == "dev":
