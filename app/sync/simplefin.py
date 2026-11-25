@@ -5,6 +5,7 @@ import os
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 import requests
 from pydantic import ValidationError
@@ -36,6 +37,38 @@ if INITIAL_SYNC_MAX_MONTHS_STR:
     INITIAL_SYNC_MAX_MONTHS = int(INITIAL_SYNC_MAX_MONTHS_STR)
 else:
     INITIAL_SYNC_MAX_MONTHS = None  # No limit, walk back until 2 empty months
+
+
+# The server only ever talks to SimpleFIN: https, allow-listed hosts, bounded
+# waits, no redirects. Prevents SSRF via a crafted setup token or endpoint.
+DEFAULT_SIMPLEFIN_HOSTS = "bridge.simplefin.org,beta-bridge.simplefin.org"
+REQUEST_TIMEOUT = (5, 30)  # (connect, read) seconds
+
+
+def _allowed_simplefin_hosts() -> set[str]:
+    raw = os.getenv("SIMPLEFIN_ALLOWED_HOSTS") or DEFAULT_SIMPLEFIN_HOSTS
+    return {h.strip().lower() for h in raw.split(",") if h.strip()}
+
+
+def validate_simplefin_url(url: str) -> None:
+    """Raise ValueError unless url is https on an allow-listed SimpleFIN host."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or host not in _allowed_simplefin_hosts():
+        raise ValueError(f"Refusing to contact non-SimpleFIN URL (host: {host or 'none'})")
+
+
+def _simplefin_get(cfg: dict, params: dict) -> requests.Response:
+    validate_simplefin_url(cfg["endpoint"])
+    response = requests.get(
+        cfg["endpoint"],
+        auth=(cfg["username"], base64.b64decode(cfg["password"]).decode()),
+        params=params,
+        timeout=REQUEST_TIMEOUT,
+        allow_redirects=False,
+    )
+    response.raise_for_status()
+    return response
 
 
 def _find_category_by_name(db: Session, category_names: list[str]) -> int | None:
@@ -135,9 +168,11 @@ def get_credentials(db: Session, config: SyncConfig) -> SyncConfig | None:
     try:
         logger.info(f"Retrieving credentials for {config.name}")
         claim_url = base64.b64decode(token).decode("utf-8")
-        response = requests.post(claim_url)
+        validate_simplefin_url(claim_url)
+        response = requests.post(claim_url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
         response.raise_for_status()
-        access_url = response.text
+        access_url = response.text.strip()
+        validate_simplefin_url(access_url)
 
         scheme, rest = access_url.split("//", 1)
         auth, rest = rest.split("@", 1)
@@ -330,12 +365,7 @@ def handle_new_account(cfg: dict, db: Session, account_id: str, already_synced_f
             "end-date": int(end.timestamp()),
         }
 
-        response = requests.get(
-            cfg["endpoint"],
-            auth=(cfg["username"], base64.b64decode(cfg["password"]).decode()),
-            params=params,
-        )
-        response.raise_for_status()
+        response = _simplefin_get(cfg, params)
         data = response.json()
 
         # Find our account in the response
@@ -422,12 +452,7 @@ def process_sync_range(
         "end-date": int(end.timestamp()),
     }
 
-    response = requests.get(
-        cfg["endpoint"],
-        auth=(cfg["username"], base64.b64decode(cfg["password"]).decode()),
-        params=params,
-    )
-    response.raise_for_status()
+    response = _simplefin_get(cfg, params)
 
     # Capture raw JSON before parsing if requested
     if capture_raw and sync_run_id:
